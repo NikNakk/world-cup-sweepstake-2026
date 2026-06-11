@@ -1,0 +1,9 @@
+[project]
+name = "worldcup-2026-gh-pages"
+version = "0.1.0"
+description = "Static GitHub Pages site for World Cup 2026 fixtures, results and sweepstake owners."
+requires-python = ">=3.11"
+dependencies = ["requests==2.32.4"]
+
+[tool.ruff]
+line-length = 100
