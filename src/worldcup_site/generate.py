@@ -3,22 +3,53 @@ from __future__ import annotations
 import argparse
 import html
 import json
-import os
 import shutil
 from collections import defaultdict
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
+from zoneinfo import ZoneInfo
 
 import requests
 
-BASE_URL = "https://v3.football.api-sports.io"
-LEAGUE_ID = 1
-SEASON = 2026
+BASE_URL = "https://worldcup26.ir"
 LIVE_STATUSES = {"1H", "HT", "2H", "ET", "P", "BT", "LIVE"}
 FINISHED_STATUSES = {"FT", "AET", "PEN"}
 NOT_STARTED_STATUSES = {"TBD", "NS"}
+MATCH_UPDATE_WINDOW = timedelta(hours=3)
+STADIUM_TIMEZONES = {
+    "1": "America/Mexico_City",
+    "2": "America/Mexico_City",
+    "3": "America/Monterrey",
+    "4": "America/Chicago",
+    "5": "America/Chicago",
+    "6": "America/Chicago",
+    "7": "America/New_York",
+    "8": "America/New_York",
+    "9": "America/New_York",
+    "10": "America/New_York",
+    "11": "America/New_York",
+    "12": "America/Toronto",
+    "13": "America/Vancouver",
+    "14": "America/Los_Angeles",
+    "15": "America/Los_Angeles",
+    "16": "America/Los_Angeles",
+}
+TEAM_ALIASES = {
+    "Democratic Republic of the Congo": "DR Congo",
+}
+TEAM_DISPLAY_NAMES = {
+    "Democratic Republic of the Congo": "DR Congo",
+}
+ROUND_NAMES = {
+    "r32": "Round of 32",
+    "r16": "Round of 16",
+    "qf": "Quarter-finals",
+    "sf": "Semi-finals",
+    "third": "3rd Place",
+    "final": "Final",
+}
 
 ROOT = Path(__file__).resolve().parents[2]
 DATA_DIR = ROOT / "data"
@@ -40,26 +71,189 @@ def load_people_map() -> dict[str, str]:
     return json.loads((DATA_DIR / "people_teams.json").read_text(encoding="utf-8"))
 
 
-def api_get(endpoint: str, params: dict[str, Any], api_key: str) -> Any:
-    response = requests.get(
-        f"{BASE_URL}/{endpoint.lstrip('/')}",
-        params=params,
-        headers={"x-apisports-key": api_key},
-        timeout=30,
-    )
+def api_get(endpoint: str, response_key: str) -> list[dict[str, Any]]:
+    response = requests.get(f"{BASE_URL}/{endpoint.lstrip('/')}", timeout=30)
     response.raise_for_status()
     data = response.json()
-    if data.get("errors"):
-        raise RuntimeError(f"API-Football returned errors for {endpoint}: {data['errors']}")
-    return data.get("response", [])
+    if isinstance(data, dict):
+        data = data.get(response_key, [])
+    if not isinstance(data, list):
+        raise RuntimeError(f"worldcup26.ir returned an unexpected response for {endpoint}")
+    return data
 
 
-def fetch_api(api_key: str) -> ApiPayload:
-    """Fetch all data using only three API calls, well inside the 100/day free tier."""
-    fixtures = api_get("fixtures", {"league": LEAGUE_ID, "season": SEASON}, api_key)
-    standings = api_get("standings", {"league": LEAGUE_ID, "season": SEASON}, api_key)
-    rounds = api_get("fixtures/rounds", {"league": LEAGUE_ID, "season": SEASON}, api_key)
-    return ApiPayload(fixtures, standings, rounds, datetime.now(timezone.utc), "api-football")
+def as_int(value: Any, default: int = 0) -> int:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def by_id(items: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    return {str(item.get("id")): item for item in items if item.get("id") is not None}
+
+
+def parse_worldcup_date(value: str | None) -> str | None:
+    if not value:
+        return None
+    try:
+        return datetime.strptime(value, "%m/%d/%Y %H:%M").isoformat()
+    except ValueError:
+        return value
+
+
+def parse_api_datetime(value: str | None) -> datetime | None:
+    if not value:
+        return None
+
+
+def game_kickoff_utc(game: dict[str, Any]) -> datetime | None:
+    kickoff = parse_api_datetime(game.get("local_date"))
+    if not kickoff:
+        return None
+    zone_name = STADIUM_TIMEZONES.get(str(game.get("stadium_id")))
+    zone = ZoneInfo(zone_name) if zone_name else timezone.utc
+    return kickoff.replace(tzinfo=zone).astimezone(timezone.utc)
+    try:
+        return datetime.strptime(value, "%m/%d/%Y %H:%M")
+    except ValueError:
+        return None
+
+
+def team_payload(
+    team: dict[str, Any] | None, fallback_name: str | None = None
+) -> dict[str, Any] | None:
+    name = (team or {}).get("name_en") or fallback_name
+    if not name:
+        return None
+    return {"name": name, "logo": (team or {}).get("flag")}
+
+
+def match_status(game: dict[str, Any]) -> dict[str, str]:
+    if str(game.get("finished")).upper() == "TRUE":
+        return {"short": "FT", "long": "Full Time"}
+    elapsed = str(game.get("time_elapsed") or "").lower()
+    if elapsed in {"notstarted", "not_started", "0", ""}:
+        return {"short": "NS", "long": "Not Started"}
+    return {"short": "LIVE", "long": f"{game.get('time_elapsed')} elapsed"}
+
+
+def is_finished_game(game: dict[str, Any]) -> bool:
+    return str(game.get("finished")).upper() == "TRUE"
+
+
+def is_live_game(game: dict[str, Any]) -> bool:
+    elapsed = str(game.get("time_elapsed") or "").lower()
+    return not is_finished_game(game) and elapsed not in {"notstarted", "not_started", "0", ""}
+
+
+def should_update_for_games(games: list[dict[str, Any]], now: datetime | None = None) -> bool:
+    now = now or datetime.now(timezone.utc)
+    if now.tzinfo is None:
+        now = now.replace(tzinfo=timezone.utc)
+    now = now.astimezone(timezone.utc)
+    for game in games:
+        if is_live_game(game):
+            return True
+        kickoff = game_kickoff_utc(game)
+        if kickoff and not is_finished_game(game) and kickoff <= now <= kickoff + MATCH_UPDATE_WINDOW:
+            return True
+    return False
+
+
+def round_name(game: dict[str, Any]) -> str:
+    match_type = str(game.get("type") or "").lower()
+    if match_type == "group":
+        group = game.get("group") or ""
+        matchday = game.get("matchday")
+        suffix = f" - Matchday {matchday}" if matchday else ""
+        return f"Group {group}{suffix}".strip()
+    return ROUND_NAMES.get(match_type, str(game.get("group") or match_type or "Other"))
+
+
+def normalize_fixtures(
+    games: list[dict[str, Any]], teams: list[dict[str, Any]], stadiums: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    teams_by_id = by_id(teams)
+    stadiums_by_id = by_id(stadiums)
+    fixtures = []
+    for game in games:
+        home_team = teams_by_id.get(str(game.get("home_team_id")))
+        away_team = teams_by_id.get(str(game.get("away_team_id")))
+        stadium = stadiums_by_id.get(str(game.get("stadium_id")), {})
+        fixtures.append(
+            {
+                "fixture": {
+                    "id": as_int(game.get("id")),
+                    "date": parse_worldcup_date(game.get("local_date")),
+                    "status": match_status(game),
+                    "venue": {
+                        "name": stadium.get("fifa_name") or stadium.get("name_en"),
+                        "city": stadium.get("city_en"),
+                    },
+                },
+                "league": {"round": round_name(game)},
+                "teams": {
+                    "home": team_payload(
+                        home_team, game.get("home_team_name_en") or game.get("home_team_label")
+                    ),
+                    "away": team_payload(
+                        away_team, game.get("away_team_name_en") or game.get("away_team_label")
+                    ),
+                },
+                "goals": {
+                    "home": as_int(game.get("home_score")),
+                    "away": as_int(game.get("away_score")),
+                },
+            }
+        )
+    return fixtures
+
+
+def normalize_standings(
+    groups: list[dict[str, Any]], teams: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    teams_by_id = by_id(teams)
+    standings = []
+    for group in groups:
+        rows = []
+        group_name = group.get("name") or group.get("group") or ""
+        for rank, row in enumerate(group.get("teams", []), start=1):
+            team = teams_by_id.get(str(row.get("team_id")), {})
+            goals_for = as_int(row.get("gf"))
+            goals_against = as_int(row.get("ga"))
+            rows.append(
+                {
+                    "rank": rank,
+                    "team": team_payload(team) or {"name": f"Team {row.get('team_id')}"},
+                    "group": f"Group {group_name}",
+                    "points": as_int(row.get("pts")),
+                    "goalsDiff": as_int(row.get("gd"), goals_for - goals_against),
+                    "all": {
+                        "played": as_int(row.get("mp")),
+                        "win": as_int(row.get("w")),
+                        "draw": as_int(row.get("d")),
+                        "lose": as_int(row.get("l")),
+                        "goals": {"for": goals_for, "against": goals_against},
+                    },
+                }
+            )
+        standings.append(rows)
+    standings.sort(key=lambda rows: rows[0].get("group", "") if rows else "")
+    return [{"league": {"standings": standings}}]
+
+
+def fetch_api() -> ApiPayload:
+    games = api_get("get/games", "games")
+    groups = api_get("get/groups", "groups")
+    teams = api_get("get/teams", "teams")
+    stadiums = api_get("get/stadiums", "stadiums")
+    fixtures = normalize_fixtures(games, teams, stadiums)
+    standings = normalize_standings(groups, teams)
+    rounds = list(
+        dict.fromkeys(f["league"]["round"] for f in fixtures if "Group" not in f["league"]["round"])
+    )
+    return ApiPayload(fixtures, standings, rounds, datetime.now(timezone.utc), "worldcup26.ir")
 
 
 def cache_payload(payload: ApiPayload) -> None:
@@ -90,23 +284,35 @@ def load_cached_payload() -> ApiPayload | None:
         standings=data.get("standings", []),
         rounds=data.get("rounds", []),
         generated_at=datetime.fromisoformat(data.get("generated_at")),
-        source="cached-api-football",
+        source="cached-worldcup26.ir",
     )
 
 
 def team_owner(team_name: str, people_map: dict[str, str]) -> str:
-    return people_map.get(team_name) or people_map.get(team_name.replace("Côte", "Cote")) or "—"
+    return (
+        people_map.get(team_name)
+        or people_map.get(TEAM_ALIASES.get(team_name, ""))
+        or people_map.get(team_name.replace("Côte", "Cote"))
+        or "—"
+    )
 
 
-def display_team(team: dict[str, Any] | None, people_map: dict[str, str]) -> str:
+def display_team_name(team_name: str) -> str:
+    return TEAM_DISPLAY_NAMES.get(team_name, team_name)
+
+
+def display_team(
+    team: dict[str, Any] | None, people_map: dict[str, str], show_owner: bool = True
+) -> str:
     if not team:
         return "<span class='placeholder'>TBC</span>"
     name = team.get("name") or "TBC"
+    label = display_team_name(name)
     owner = team_owner(name, people_map)
     logo = team.get("logo")
     logo_html = f"<img src='{html.escape(logo)}' alt='' loading='lazy'>" if logo else ""
-    owner_html = f"<span class='owner'>{html.escape(owner)}</span>" if owner != "—" else ""
-    return f"<span class='team'>{logo_html}<span>{html.escape(name)}</span>{owner_html}</span>"
+    owner_html = f"<span class='owner'>{html.escape(owner)}</span>" if show_owner and owner != "—" else ""
+    return f"<span class='team'>{logo_html}<span class='team-name'>{html.escape(label)}</span>{owner_html}</span>"
 
 
 def get_standings_tables(standings: list[Any]) -> dict[str, list[dict[str, Any]]]:
@@ -142,7 +348,7 @@ def format_date(date_string: str | None) -> str:
         return "TBC"
     try:
         dt = datetime.fromisoformat(date_string.replace("Z", "+00:00"))
-        return dt.strftime("%a %-d %b %Y, %H:%M")
+        return f"{dt.strftime('%a')} {dt.day} {dt.strftime('%b %Y, %H:%M')}"
     except ValueError:
         return date_string
 
@@ -198,7 +404,7 @@ def render_standings(tables: dict[str, list[dict[str, Any]]], people_map: dict[s
                 f"""
                 <tr>
                   <td class='rank'>{row.get('rank', '')}</td>
-                  <td>{display_team(team, people_map)}</td>
+                  <td>{display_team(team, people_map, show_owner=False)}</td>
                   <td>{team_owner(team.get('name', ''), people_map)}</td>
                   <td>{all_stats.get('played', 0)}</td>
                   <td>{all_stats.get('win', 0)}</td>
@@ -361,34 +567,48 @@ def render_page(payload: ApiPayload) -> str:
   </main>
 
   <footer>
-    <p>Last generated {html.escape(generated)} from {html.escape(payload.source)}. Data source: API-Football / API-SPORTS. Built as static HTML.</p>
+    <p>Last generated {html.escape(generated)} from {html.escape(payload.source)}. Data source: worldcup26.ir. Built as static HTML.</p>
   </footer>
   <script src='assets/site.js'></script>
 </body>
 </html>"""
 
 
-def generate(api_key: str | None, allow_cache: bool = True) -> None:
+def generate(allow_cache: bool = True) -> None:
     SITE_DIR.mkdir(exist_ok=True)
     ASSETS_DIR.mkdir(exist_ok=True)
-    if api_key:
-        payload = fetch_api(api_key)
+    try:
+        payload = fetch_api()
         cache_payload(payload)
-    elif allow_cache and (cached := load_cached_payload()):
-        payload = cached
-    else:
-        payload = ApiPayload([], [], [], datetime.now(timezone.utc), "no API key / no cache")
+    except (requests.RequestException, RuntimeError):
+        if allow_cache and (cached := load_cached_payload()):
+            payload = cached
+        else:
+            payload = ApiPayload(
+                [], [], [], datetime.now(timezone.utc), "worldcup26.ir unavailable / no cache"
+            )
 
     (SITE_DIR / "index.html").write_text(render_page(payload), encoding="utf-8")
     shutil.copyfile(DATA_DIR / "people_teams.json", SITE_DIR / "people_teams.json")
 
 
+def should_update_now() -> bool:
+    return should_update_for_games(api_get("get/games", "games"))
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Generate the World Cup 2026 GitHub Pages site.")
-    parser.add_argument("--api-key", default=os.environ.get("API_FOOTBALL_KEY"))
     parser.add_argument("--no-cache", action="store_true")
+    parser.add_argument(
+        "--should-update-now",
+        action="store_true",
+        help="Print true when a match is live or inside its scheduled update window.",
+    )
     args = parser.parse_args()
-    generate(args.api_key, allow_cache=not args.no_cache)
+    if args.should_update_now:
+        print(str(should_update_now()).lower())
+        return
+    generate(allow_cache=not args.no_cache)
 
 
 if __name__ == "__main__":

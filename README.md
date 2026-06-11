@@ -2,18 +2,19 @@
 
 This project builds a static GitHub Pages site showing World Cup 2026 fixtures, results, group tables and knockout rounds, with each team labelled with the person from the sweepstake photo.
 
-It is designed for the API-Football / API-SPORTS free tier. A full daily build currently uses only **3 API requests**:
+It uses the free open-source `worldcup26.ir` API from [rezarahiminia/worldcup2026](https://github.com/rezarahiminia/worldcup2026). A full build fetches:
 
-1. `fixtures?league=1&season=2026`
-2. `standings?league=1&season=2026`
-3. `fixtures/rounds?league=1&season=2026`
+1. `https://worldcup26.ir/get/games`
+2. `https://worldcup26.ir/get/groups`
+3. `https://worldcup26.ir/get/teams`
+4. `https://worldcup26.ir/get/stadiums`
 
-API-Football's World Cup 2026 guide states that the World Cup identifiers are `league=1` and `season=2026`, and that `/fixtures` returns the schedule, `/standings` returns the group tables, and `/fixtures/rounds` returns the round names.
+No API key is required for read access.
 
 ## Repository structure
 
 ```text
-.github/workflows/update-worldcup.yml  Daily GitHub Action and Pages deployment
+.github/workflows/update-worldcup.yml  Match-window GitHub Action and Pages deployment
 data/people_teams.json                 Sweepstake team-to-person mapping
 site/assets/style.css                   Site styling
 site/assets/site.js                     Small progressive enhancement script
@@ -27,31 +28,24 @@ requirements.txt                        Python dependencies
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-export API_FOOTBALL_KEY="your-api-football-key"
 python -m src.worldcup_site.generate
 python -m http.server 8000 --directory site
 ```
 
 Then open `http://localhost:8000`.
 
-If no API key is present, the generator will use `.cache/last_payload.json` if one exists; otherwise it will still build the page with empty data. This makes local styling changes possible without burning API calls.
+If the API cannot be reached, the generator will use `.cache/last_payload.json` if one exists; otherwise it will still build the page with empty data. This makes local styling changes possible without needing a live API response.
 
 ## GitHub setup
 
 1. Create a new GitHub repository.
 2. Copy these files into it and push to `main`.
-3. In **Settings → Secrets and variables → Actions**, add a repository secret named:
-
-```text
-API_FOOTBALL_KEY
-```
-
-4. In **Settings → Pages**, set the source to **GitHub Actions**.
-5. Run **Actions → Update World Cup site → Run workflow**, or wait for the daily schedule.
+3. In **Settings → Pages**, set the source to **GitHub Actions**.
+4. Run **Actions → Update World Cup site → Run workflow**, or wait for the scheduled checks.
 
 ## Changing the sweepstake mapping
 
-Edit `data/people_teams.json`. Several aliases are included because API-Football may use names such as `Congo DR` rather than `DR Congo`, or `Côte d'Ivoire` rather than `Ivory Coast`.
+Edit `data/people_teams.json`. Several aliases are included because APIs may use names such as `Democratic Republic of the Congo` rather than `DR Congo`, or `Côte d'Ivoire` rather than `Ivory Coast`.
 
 Current mapping transcribed from the image:
 
@@ -74,9 +68,9 @@ Current mapping transcribed from the image:
 | Diggers | Colombia, Saudi Arabia, South Africa |
 | Extra | Belgium, Ecuador, Curacao |
 
-## API quota notes
+## API refresh notes
 
-The workflow is deliberately daily, not hourly, to stay within the free tier. During the tournament, a daily refresh is enough for a wall-chart-style page. If you want same-day live updates during matches, add a second workflow during match windows only; do not poll every few minutes on the free tier.
+The workflow checks every 5 minutes. Scheduled runs only build and deploy when the API reports a live match, or when an unfinished match is within its scheduled 3-hour kickoff window. Manual workflow runs always build and deploy.
 
 ## Deployment model
 
