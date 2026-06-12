@@ -1,8 +1,8 @@
-# World Cup 2026 Sweepstake GitHub Pages site
+# World Cup 2026 Sweepstake Cloudflare site
 
-This project builds a static GitHub Pages site showing World Cup 2026 fixtures, results, group tables and knockout rounds, with each team labelled with the person from the sweepstake photo.
+This project builds a static Cloudflare Pages site showing World Cup 2026 fixtures, results, group tables and knockout rounds, with each team labelled with the person from the sweepstake photo.
 
-It uses the free open-source `worldcup26.ir` API from [rezarahiminia/worldcup2026](https://github.com/rezarahiminia/worldcup2026). A full build fetches:
+It uses the free open-source `worldcup26.ir` API from [rezarahiminia/worldcup2026](https://github.com/rezarahiminia/worldcup2026). A full refresh fetches:
 
 1. `https://worldcup26.ir/get/games`
 2. `https://worldcup26.ir/get/groups`
@@ -11,15 +11,33 @@ It uses the free open-source `worldcup26.ir` API from [rezarahiminia/worldcup202
 
 No API key is required for read access.
 
+## Cloudflare deployment model
+
+This repository no longer uses GitHub Actions. It is designed for Cloudflare's free tier:
+
+- **Cloudflare Pages** hosts the static assets in `site/` and the Pages Function in `functions/[[path]].js`.
+- **Cloudflare Workers Cron Triggers** run `cloudflare/worker/scheduled.js` every five minutes during Cloudflare's scheduled window.
+- **Workers KV** stores the latest rendered `index.html`, source payload, and update status so the page can be refreshed without committing generated HTML or running CI.
+- The Pages Function serves the KV-backed `index.html` for `/` and `/index.html`, then lets Cloudflare Pages serve CSS, JavaScript, and JSON assets normally.
+
+Scheduled refreshes only rewrite the cached page when the API reports a live match, or when an unfinished match is inside its scheduled three-hour kickoff window. A manual `POST /refresh` endpoint on the Worker can force a refresh.
+
 ## Repository structure
 
 ```text
-.github/workflows/update-worldcup.yml  Match-window GitHub Action and Pages deployment
-data/people_teams.json                 Sweepstake team-to-person mapping
-site/assets/style.css                   Site styling
-site/assets/site.js                     Small progressive enhancement script
-src/worldcup_site/generate.py           Python fetch + static HTML generator
-requirements.txt                        Python dependencies
+cloudflare/lib/people-map.js          Sweepstake mapping exported for Cloudflare Workers
+cloudflare/lib/worldcup-renderer.js   Worker-safe API client, update-window logic, and HTML renderer
+cloudflare/pages/wrangler.toml        Cloudflare Pages config and KV binding placeholder
+cloudflare/worker/scheduled.js        Scheduled Worker and manual refresh endpoints
+cloudflare/worker/wrangler.toml       Worker config, cron trigger, and KV binding placeholder
+data/people_teams.json                Source sweepstake team-to-person mapping
+functions/[[path]].js                 Cloudflare Pages Function that serves the latest KV HTML
+scripts/cloudflare-bootstrap.sh        Helper to create Pages and KV resources
+scripts/deploy-cloudflare.sh          One-command install/build/deploy helper
+site/assets/style.css                 Site styling
+site/assets/site.js                   Small progressive enhancement script
+src/worldcup_site/generate.py         Python local fallback static HTML generator
+requirements.txt                      Python dependencies for local builds
 ```
 
 ## Quick start locally
@@ -34,18 +52,81 @@ python -m http.server 8000 --directory site
 
 Then open `http://localhost:8000`.
 
-If the API cannot be reached, the generator will use `.cache/last_payload.json` if one exists; otherwise it will still build the page with empty data. This makes local styling changes possible without needing a live API response.
+If the API cannot be reached, the Python generator will use `.cache/last_payload.json` if one exists; otherwise it will still build the page with empty data. This makes local styling changes possible without needing a live API response.
 
-## GitHub setup
+## Cloudflare setup
 
-1. Create a new GitHub repository.
-2. Copy these files into it and push to `main`.
-3. In **Settings → Pages**, set the source to **GitHub Actions**.
-4. Run **Actions → Update World Cup site → Run workflow**, or wait for the scheduled checks.
+### 1. Install Wrangler and log in
+
+```bash
+npm install
+npx wrangler login
+```
+
+### 2. Create the free-tier Cloudflare resources
+
+```bash
+./scripts/cloudflare-bootstrap.sh
+```
+
+The bootstrap helper creates a Pages project and prints the production and preview Workers KV namespace IDs. Copy those IDs into both files:
+
+- `cloudflare/pages/wrangler.toml`
+- `cloudflare/worker/wrangler.toml`
+
+Use the same production namespace ID for both configs so the scheduled Worker and Pages Function share the rendered page.
+
+### 3. Deploy Pages and the scheduled Worker
+
+```bash
+npm run cf:deploy
+```
+
+You can also deploy each part separately:
+
+```bash
+npm run cf:pages:deploy
+npm run cf:worker:deploy
+```
+
+### 4. Optional: protect manual refreshes
+
+The cron trigger does not need a token. If you want to require a bearer token for manual `POST /refresh` calls, set an `UPDATE_TOKEN` secret on the Worker:
+
+```bash
+npx wrangler secret put UPDATE_TOKEN --config cloudflare/worker/wrangler.toml
+```
+
+Then trigger a forced refresh with:
+
+```bash
+curl -X POST \
+  -H "Authorization: Bearer $UPDATE_TOKEN" \
+  https://worldcup-sweepstake-updater.<your-workers-subdomain>.workers.dev/refresh
+```
+
+Without `UPDATE_TOKEN`, `POST /refresh` remains open. You can always inspect the latest status with:
+
+```bash
+curl https://worldcup-sweepstake-updater.<your-workers-subdomain>.workers.dev/health
+```
 
 ## Changing the sweepstake mapping
 
-Edit `data/people_teams.json`. Several aliases are included because APIs may use names such as `Democratic Republic of the Congo` rather than `DR Congo`, or `Côte d'Ivoire` rather than `Ivory Coast`.
+Edit `data/people_teams.json`, then regenerate the Cloudflare export:
+
+```bash
+python - <<'PY'
+import json
+from pathlib import Path
+mapping = json.loads(Path('data/people_teams.json').read_text())
+Path('cloudflare/lib/people-map.js').write_text(
+    'const PEOPLE_MAP = ' + json.dumps(mapping, ensure_ascii=False, indent=2) + ';\n\nexport { PEOPLE_MAP };\n'
+)
+PY
+```
+
+Several aliases are included because APIs may use names such as `Democratic Republic of the Congo` rather than `DR Congo`, or `Côte d'Ivoire` rather than `Ivory Coast`.
 
 Current mapping transcribed from the image:
 
@@ -55,7 +136,7 @@ Current mapping transcribed from the image:
 | Emma | France, Ivory Coast, Czech Republic |
 | Jennie | Netherlands, Austria, Panama |
 | Sean | Senegal, Iran, Jordan |
-| Seham | Portugal, Algeria, Haiti |
+| Shyam | Portugal, Algeria, Haiti |
 | Nick | Germany, Australia, DR Congo |
 | Ben | England, Paraguay, Iraq |
 | Tom | Egypt, Norway, Scotland |
@@ -70,8 +151,4 @@ Current mapping transcribed from the image:
 
 ## API refresh notes
 
-The workflow checks every 5 minutes. Scheduled runs only build and deploy when the API reports a live match, or when an unfinished match is within its scheduled 3-hour kickoff window. Manual workflow runs always build and deploy.
-
-## Deployment model
-
-The workflow deploys the generated `site/` directory directly using GitHub Pages Actions. It does not commit generated HTML back to the repository.
+Cloudflare runs the Worker cron every 5 minutes using `3-59/5 * * * *`. Scheduled runs only render and store a new page when the API reports a live match, or when an unfinished match is within its scheduled 3-hour kickoff window. Manual Worker refreshes always render and store a new page.
