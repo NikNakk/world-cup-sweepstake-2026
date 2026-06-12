@@ -240,3 +240,47 @@ footer { padding: 2rem clamp(1rem, 4vw, 4rem); color: var(--muted); border-top: 
   .team:last-child { justify-content: flex-start; text-align: left; }
   .score { width: max-content; }
 }
+
+@media (max-width: 520px) {
+  .group-card { padding: .75rem; }
+  .group-card table { font-size: .72rem; }
+  .group-card th,
+  .group-card td {
+    padding: .45rem .12rem;
+    vertical-align: top;
+  }
+  .group-card th {
+    font-size: .56rem;
+    letter-spacing: .02em;
+    line-height: 1.15;
+    overflow-wrap: anywhere;
+  }
+  .group-card th:nth-child(1),
+  .group-card td:nth-child(1) { width: 1.35rem; }
+  .group-card th:nth-child(2),
+  .group-card td:nth-child(2) { width: 5.5rem; }
+  .group-card th:nth-child(3),
+  .group-card td:nth-child(3) { width: 4.3rem; }
+  .group-card th:nth-child(n+4),
+  .group-card td:nth-child(n+4) { width: 1.35rem; }
+  .group-card th:nth-child(8),
+  .group-card td:nth-child(8) { width: 2.75rem; }
+  .group-card th:nth-child(9),
+  .group-card td:nth-child(9) { width: 1.55rem; }
+  .group-card th:nth-child(10),
+  .group-card td:nth-child(10) { width: 1.75rem; }
+  .group-card .team {
+    flex-direction: column;
+    align-items: flex-start;
+    flex-wrap: nowrap;
+    gap: .3rem;
+  }
+  .group-card .team img {
+    width: 1.15rem;
+    height: 1.15rem;
+  }
+  .group-card .team-name {
+    line-height: 1.25;
+    overflow-wrap: anywhere;
+  }
+}
