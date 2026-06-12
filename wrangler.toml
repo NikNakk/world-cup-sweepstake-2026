@@ -4,5 +4,5 @@ compatibility_date = "2026-06-12"
 
 [[kv_namespaces]]
 binding = "WORLDCUP_SITE"
-id = "REPLACE_WITH_PRODUCTION_KV_NAMESPACE_ID"
-preview_id = "REPLACE_WITH_PREVIEW_KV_NAMESPACE_ID"
+id = "d595e9262e6d467fb1217fb41920af9c"
+preview_id = "600f17f323dc428d9ac44816f3f32222"

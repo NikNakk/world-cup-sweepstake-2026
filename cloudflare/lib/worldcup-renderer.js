@@ -445,11 +445,11 @@ function renderPage(payload, peopleMap) {
       <h1>RDUH Gastro Sweepstake</h1>
       <p class='lead'>Fixtures, results, groups and knockout stages, with each team labelled by its person from the sweepstake sheet.</p>
     </div>
-    <div class='stats'>
-      <div><strong>${fixtures.length}</strong><span>fixtures</span></div>
-      <div><strong>${finished}</strong><span>finished</span></div>
-      <div><strong>${live}</strong><span>live</span></div>
-      <div><strong>${upcoming}</strong><span>upcoming</span></div>
+    <div class='stats' aria-label='Fixture filters'>
+      <button type='button' data-fixture-filter='all' aria-pressed='false'><strong>${fixtures.length}</strong><span>fixtures</span></button>
+      <button type='button' data-fixture-filter='done' aria-pressed='false'><strong>${finished}</strong><span>finished</span></button>
+      <button type='button' data-fixture-filter='live' aria-pressed='false'><strong>${live}</strong><span>live</span></button>
+      <button type='button' data-fixture-filter='upcoming' aria-pressed='false'><strong>${upcoming}</strong><span>upcoming</span></button>
     </div>
   </header>
 

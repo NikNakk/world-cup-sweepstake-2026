@@ -8,8 +8,8 @@ crons = ["3-59/5 * * * *"]
 
 [[kv_namespaces]]
 binding = "WORLDCUP_SITE"
-id = "REPLACE_WITH_PRODUCTION_KV_NAMESPACE_ID"
-preview_id = "REPLACE_WITH_PREVIEW_KV_NAMESPACE_ID"
+id = "d595e9262e6d467fb1217fb41920af9c"
+preview_id = "600f17f323dc428d9ac44816f3f32222"
 
 # Set this secret to enable manual POST /refresh with Authorization: Bearer <token>.
 # Run: npx wrangler secret put UPDATE_TOKEN --config cloudflare/worker/wrangler.toml

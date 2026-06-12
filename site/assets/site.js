@@ -6,7 +6,11 @@ if (matches.length) {
 const personCards = [...document.querySelectorAll('.person-card[data-person]')];
 const matchCards = [...document.querySelectorAll('.match')];
 const groupCards = [...document.querySelectorAll('.group-card[data-people]')];
+const fixtureFilterButtons = [...document.querySelectorAll('[data-fixture-filter]')];
+const fixtureSections = [...document.querySelectorAll('.fixture-group, .knockout-round')];
+const groupsSection = document.querySelector('#groups');
 let selectedPerson = null;
+let selectedFixtureFilter = null;
 
 function matchFeaturesPerson(match, person) {
   return [...match.querySelectorAll('.owner')].some((owner) => owner.textContent.trim() === person);
@@ -42,6 +46,40 @@ function setSelectedPerson(person) {
   });
 }
 
+function matchPassesFixtureFilter(match) {
+  if (!selectedFixtureFilter || selectedFixtureFilter === 'all') {
+    return true;
+  }
+  return match.classList.contains(selectedFixtureFilter);
+}
+
+function sectionHasVisibleMatches(section) {
+  return [...section.querySelectorAll('.match')].some((match) => !match.hidden);
+}
+
+function setSelectedFixtureFilter(filter) {
+  selectedFixtureFilter = selectedFixtureFilter === filter ? null : filter;
+  document.body.classList.toggle('fixture-filter-active', Boolean(selectedFixtureFilter));
+
+  fixtureFilterButtons.forEach((button) => {
+    const isSelected = button.dataset.fixtureFilter === selectedFixtureFilter;
+    button.classList.toggle('is-selected', isSelected);
+    button.setAttribute('aria-pressed', String(isSelected));
+  });
+
+  matchCards.forEach((match) => {
+    match.hidden = !matchPassesFixtureFilter(match);
+  });
+
+  fixtureSections.forEach((section) => {
+    section.hidden = Boolean(selectedFixtureFilter) && !sectionHasVisibleMatches(section);
+  });
+
+  if (groupsSection) {
+    groupsSection.hidden = Boolean(selectedFixtureFilter);
+  }
+}
+
 personCards.forEach((card) => {
   card.addEventListener('click', () => {
     setSelectedPerson(card.dataset.person);
@@ -53,5 +91,11 @@ personCards.forEach((card) => {
     }
     event.preventDefault();
     setSelectedPerson(card.dataset.person);
+  });
+});
+
+fixtureFilterButtons.forEach((button) => {
+  button.addEventListener('click', () => {
+    setSelectedFixtureFilter(button.dataset.fixtureFilter);
   });
 });
