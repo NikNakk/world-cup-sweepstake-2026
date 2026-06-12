@@ -105,6 +105,10 @@ def parse_worldcup_date(value: str | None) -> str | None:
 def parse_api_datetime(value: str | None) -> datetime | None:
     if not value:
         return None
+    try:
+        return datetime.strptime(value, "%m/%d/%Y %H:%M")
+    except ValueError:
+        return None
 
 
 def game_kickoff_utc(game: dict[str, Any]) -> datetime | None:
@@ -114,10 +118,6 @@ def game_kickoff_utc(game: dict[str, Any]) -> datetime | None:
     zone_name = STADIUM_TIMEZONES.get(str(game.get("stadium_id")))
     zone = ZoneInfo(zone_name) if zone_name else timezone.utc
     return kickoff.replace(tzinfo=zone).astimezone(timezone.utc)
-    try:
-        return datetime.strptime(value, "%m/%d/%Y %H:%M")
-    except ValueError:
-        return None
 
 
 def team_payload(
@@ -572,7 +572,7 @@ def render_page(payload: ApiPayload) -> str:
   </main>
 
   <footer>
-    <p>Last generated {html.escape(generated)} from {html.escape(payload.source)}. Data source: worldcup26.ir. Built as static HTML.</p>
+    <p>Last generated {html.escape(generated)} from {html.escape(payload.source)}. Data source: worldcup26.ir. Built as static HTML and refreshed by Cloudflare Workers.</p>
   </footer>
   <script src='assets/site.js'></script>
 </body>
@@ -602,7 +602,7 @@ def should_update_now() -> bool:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Generate the World Cup 2026 GitHub Pages site.")
+    parser = argparse.ArgumentParser(description="Generate the World Cup 2026 static site.")
     parser.add_argument("--no-cache", action="store_true")
     parser.add_argument(
         "--should-update-now",
