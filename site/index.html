@@ -22,17 +22,22 @@
   </header>
 
   <nav class='tabs' aria-label='Page sections'>
+    <a href='#people'>People</a>
     <a href='#groups'>Groups</a>
     <a href='#group-fixtures'>Group fixtures</a>
     <a href='#knockouts'>Knockouts</a>
-    <a href='#people'>People</a>
   </nav>
 
   <main>
+    <section id='people'>
+      <div class='section-heading'><h2>Sweepstake people</h2><p>Team ownership transcribed from the photo.</p></div>
+      <div class='people-grid'><article class='person-card' data-person='Alistair' role='button' tabindex='0' aria-pressed='false'><h3>Alistair</h3><ul><li>Bosnia and Herzegovina</li><li>Morocco</li><li>Switzerland</li></ul></article><article class='person-card' data-person='Andrew' role='button' tabindex='0' aria-pressed='false'><h3>Andrew</h3><ul><li>Brazil</li><li>Cape Verde</li><li>Mexico</li></ul></article><article class='person-card' data-person='Ben' role='button' tabindex='0' aria-pressed='false'><h3>Ben</h3><ul><li>England</li><li>Iraq</li><li>Paraguay</li></ul></article><article class='person-card' data-person='Chris' role='button' tabindex='0' aria-pressed='false'><h3>Chris</h3><ul><li>Ghana</li><li>Spain</li><li>Sweden</li></ul></article><article class='person-card' data-person='Diggers' role='button' tabindex='0' aria-pressed='false'><h3>Diggers</h3><ul><li>Colombia</li><li>Saudi Arabia</li><li>South Africa</li></ul></article><article class='person-card' data-person='Emma' role='button' tabindex='0' aria-pressed='false'><h3>Emma</h3><ul><li>Czech Republic</li><li>France</li><li>Ivory Coast</li></ul></article><article class='person-card' data-person='Extra' role='button' tabindex='0' aria-pressed='false'><h3>Extra</h3><ul><li>Belgium</li><li>Curaçao</li><li>Ecuador</li></ul></article><article class='person-card' data-person='Jane' role='button' tabindex='0' aria-pressed='false'><h3>Jane</h3><ul><li>Japan</li><li>Qatar</li><li>Uruguay</li></ul></article><article class='person-card' data-person='Jennie' role='button' tabindex='0' aria-pressed='false'><h3>Jennie</h3><ul><li>Austria</li><li>Netherlands</li><li>Panama</li></ul></article><article class='person-card' data-person='John C' role='button' tabindex='0' aria-pressed='false'><h3>John C</h3><ul><li>Argentina</li><li>New Zealand</li><li>Turkey</li></ul></article><article class='person-card' data-person='Nick' role='button' tabindex='0' aria-pressed='false'><h3>Nick</h3><ul><li>Australia</li><li>Democratic Republic of the Congo</li><li>Germany</li></ul></article><article class='person-card' data-person='Richard' role='button' tabindex='0' aria-pressed='false'><h3>Richard</h3><ul><li>South Korea</li><li>Tunisia</li><li>United States</li></ul></article><article class='person-card' data-person='Sean' role='button' tabindex='0' aria-pressed='false'><h3>Sean</h3><ul><li>Iran</li><li>Jordan</li><li>Senegal</li></ul></article><article class='person-card' data-person='Shyam' role='button' tabindex='0' aria-pressed='false'><h3>Shyam</h3><ul><li>Algeria</li><li>Haiti</li><li>Portugal</li></ul></article><article class='person-card' data-person='Tariq' role='button' tabindex='0' aria-pressed='false'><h3>Tariq</h3><ul><li>Canada</li><li>Croatia</li><li>Uzbekistan</li></ul></article><article class='person-card' data-person='Tom' role='button' tabindex='0' aria-pressed='false'><h3>Tom</h3><ul><li>Egypt</li><li>Norway</li><li>Scotland</li></ul></article></div>
+    </section>
+
     <section id='groups'>
       <div class='section-heading'><h2>Group tables</h2><p>Top two plus the eight best third-placed teams progress to the Round of 32.</p></div>
       <div class='grid groups-grid'>
-            <section class='group-card' id='group-a'>
+            <section class='group-card' id='group-a' data-people='Andrew|Diggers|Emma|Richard'>
               <h3>Group A</h3>
               <div class='table-wrap'>
                 <table>
@@ -94,7 +99,7 @@
               </div>
             </section>
             
-            <section class='group-card' id='group-b'>
+            <section class='group-card' id='group-b' data-people='Alistair|Jane|Tariq'>
               <h3>Group B</h3>
               <div class='table-wrap'>
                 <table>
@@ -156,7 +161,7 @@
               </div>
             </section>
             
-            <section class='group-card' id='group-c'>
+            <section class='group-card' id='group-c' data-people='Alistair|Andrew|Shyam|Tom'>
               <h3>Group C</h3>
               <div class='table-wrap'>
                 <table>
@@ -191,7 +196,7 @@
                 <tr>
                   <td class='rank'>3</td>
                   <td><span class='team'><img src='https://flagcdn.com/w80/ht.png' alt='' loading='lazy'><span class='team-name'>Haiti</span></span></td>
-                  <td>Seham</td>
+                  <td>Shyam</td>
                   <td>0</td>
                   <td>0</td>
                   <td>0</td>
@@ -218,7 +223,7 @@
               </div>
             </section>
             
-            <section class='group-card' id='group-d'>
+            <section class='group-card' id='group-d' data-people='Ben|John C|Nick|Richard'>
               <h3>Group D</h3>
               <div class='table-wrap'>
                 <table>
@@ -280,7 +285,7 @@
               </div>
             </section>
             
-            <section class='group-card' id='group-e'>
+            <section class='group-card' id='group-e' data-people='Emma|Extra|Nick'>
               <h3>Group E</h3>
               <div class='table-wrap'>
                 <table>
@@ -342,7 +347,7 @@
               </div>
             </section>
             
-            <section class='group-card' id='group-f'>
+            <section class='group-card' id='group-f' data-people='Chris|Jane|Jennie|Richard'>
               <h3>Group F</h3>
               <div class='table-wrap'>
                 <table>
@@ -404,7 +409,7 @@
               </div>
             </section>
             
-            <section class='group-card' id='group-g'>
+            <section class='group-card' id='group-g' data-people='Extra|John C|Sean|Tom'>
               <h3>Group G</h3>
               <div class='table-wrap'>
                 <table>
@@ -466,7 +471,7 @@
               </div>
             </section>
             
-            <section class='group-card' id='group-h'>
+            <section class='group-card' id='group-h' data-people='Andrew|Chris|Diggers|Jane'>
               <h3>Group H</h3>
               <div class='table-wrap'>
                 <table>
@@ -528,7 +533,7 @@
               </div>
             </section>
             
-            <section class='group-card' id='group-i'>
+            <section class='group-card' id='group-i' data-people='Ben|Emma|Sean|Tom'>
               <h3>Group I</h3>
               <div class='table-wrap'>
                 <table>
@@ -590,7 +595,7 @@
               </div>
             </section>
             
-            <section class='group-card' id='group-j'>
+            <section class='group-card' id='group-j' data-people='Jennie|John C|Sean|Shyam'>
               <h3>Group J</h3>
               <div class='table-wrap'>
                 <table>
@@ -612,7 +617,7 @@
                 <tr>
                   <td class='rank'>2</td>
                   <td><span class='team'><img src='https://flagcdn.com/w80/dz.png' alt='' loading='lazy'><span class='team-name'>Algeria</span></span></td>
-                  <td>Seham</td>
+                  <td>Shyam</td>
                   <td>0</td>
                   <td>0</td>
                   <td>0</td>
@@ -652,7 +657,7 @@
               </div>
             </section>
             
-            <section class='group-card' id='group-k'>
+            <section class='group-card' id='group-k' data-people='Diggers|Nick|Shyam|Tariq'>
               <h3>Group K</h3>
               <div class='table-wrap'>
                 <table>
@@ -661,7 +666,7 @@
                 <tr>
                   <td class='rank'>1</td>
                   <td><span class='team'><img src='https://flagcdn.com/w80/pt.png' alt='' loading='lazy'><span class='team-name'>Portugal</span></span></td>
-                  <td>Seham</td>
+                  <td>Shyam</td>
                   <td>0</td>
                   <td>0</td>
                   <td>0</td>
@@ -714,7 +719,7 @@
               </div>
             </section>
             
-            <section class='group-card' id='group-l'>
+            <section class='group-card' id='group-l' data-people='Ben|Chris|Jennie|Tariq'>
               <h3>Group L</h3>
               <div class='table-wrap'>
                 <table>
@@ -956,7 +961,7 @@
           <span>Not Started</span>
         </div>
         <div class='teams-row'>
-          <span class='team'><img src='https://flagcdn.com/w80/ht.png' alt='' loading='lazy'><span class='team-name'>Haiti</span><span class='owner'>Seham</span></span>
+          <span class='team'><img src='https://flagcdn.com/w80/ht.png' alt='' loading='lazy'><span class='team-name'>Haiti</span><span class='owner'>Shyam</span></span>
           <strong class='score'>Sat 13 Jun 2026, 21:00</strong>
           <span class='team'><img src='https://flagcdn.com/w80/gb-sct.png' alt='' loading='lazy'><span class='team-name'>Scotland</span><span class='owner'>Tom</span></span>
         </div>
@@ -984,7 +989,7 @@
         <div class='teams-row'>
           <span class='team'><img src='https://flagcdn.com/w80/br.png' alt='' loading='lazy'><span class='team-name'>Brazil</span><span class='owner'>Andrew</span></span>
           <strong class='score'>Fri 19 Jun 2026, 21:00</strong>
-          <span class='team'><img src='https://flagcdn.com/w80/ht.png' alt='' loading='lazy'><span class='team-name'>Haiti</span><span class='owner'>Seham</span></span>
+          <span class='team'><img src='https://flagcdn.com/w80/ht.png' alt='' loading='lazy'><span class='team-name'>Haiti</span><span class='owner'>Shyam</span></span>
         </div>
         <div class='venue'>Philadelphia Stadium, Philadelphia</div>
       </article>
@@ -1010,7 +1015,7 @@
         <div class='teams-row'>
           <span class='team'><img src='https://flagcdn.com/w80/ma.png' alt='' loading='lazy'><span class='team-name'>Morocco</span><span class='owner'>Alistair</span></span>
           <strong class='score'>Wed 24 Jun 2026, 18:00</strong>
-          <span class='team'><img src='https://flagcdn.com/w80/ht.png' alt='' loading='lazy'><span class='team-name'>Haiti</span><span class='owner'>Seham</span></span>
+          <span class='team'><img src='https://flagcdn.com/w80/ht.png' alt='' loading='lazy'><span class='team-name'>Haiti</span><span class='owner'>Shyam</span></span>
         </div>
         <div class='venue'>Atlanta Stadium, Atlanta</div>
       </article>
@@ -1491,7 +1496,7 @@
         <div class='teams-row'>
           <span class='team'><img src='https://flagcdn.com/w80/ar.png' alt='' loading='lazy'><span class='team-name'>Argentina</span><span class='owner'>John C</span></span>
           <strong class='score'>Tue 16 Jun 2026, 20:00</strong>
-          <span class='team'><img src='https://flagcdn.com/w80/dz.png' alt='' loading='lazy'><span class='team-name'>Algeria</span><span class='owner'>Seham</span></span>
+          <span class='team'><img src='https://flagcdn.com/w80/dz.png' alt='' loading='lazy'><span class='team-name'>Algeria</span><span class='owner'>Shyam</span></span>
         </div>
         <div class='venue'>Kansas City Stadium, Kansas City</div>
       </article>
@@ -1530,7 +1535,7 @@
         <div class='teams-row'>
           <span class='team'><img src='https://flagcdn.com/w80/jo.png' alt='' loading='lazy'><span class='team-name'>Jordan</span><span class='owner'>Sean</span></span>
           <strong class='score'>Mon 22 Jun 2026, 20:00</strong>
-          <span class='team'><img src='https://flagcdn.com/w80/dz.png' alt='' loading='lazy'><span class='team-name'>Algeria</span><span class='owner'>Seham</span></span>
+          <span class='team'><img src='https://flagcdn.com/w80/dz.png' alt='' loading='lazy'><span class='team-name'>Algeria</span><span class='owner'>Shyam</span></span>
         </div>
         <div class='venue'>San Francisco Bay Area Stadium, San Francisco Bay Area (Santa Clara)</div>
       </article>
@@ -1541,7 +1546,7 @@
           <span>Not Started</span>
         </div>
         <div class='teams-row'>
-          <span class='team'><img src='https://flagcdn.com/w80/dz.png' alt='' loading='lazy'><span class='team-name'>Algeria</span><span class='owner'>Seham</span></span>
+          <span class='team'><img src='https://flagcdn.com/w80/dz.png' alt='' loading='lazy'><span class='team-name'>Algeria</span><span class='owner'>Shyam</span></span>
           <strong class='score'>Sat 27 Jun 2026, 21:00</strong>
           <span class='team'><img src='https://flagcdn.com/w80/at.png' alt='' loading='lazy'><span class='team-name'>Austria</span><span class='owner'>Jennie</span></span>
         </div>
@@ -1567,7 +1572,7 @@
           <span>Not Started</span>
         </div>
         <div class='teams-row'>
-          <span class='team'><img src='https://flagcdn.com/w80/pt.png' alt='' loading='lazy'><span class='team-name'>Portugal</span><span class='owner'>Seham</span></span>
+          <span class='team'><img src='https://flagcdn.com/w80/pt.png' alt='' loading='lazy'><span class='team-name'>Portugal</span><span class='owner'>Shyam</span></span>
           <strong class='score'>Wed 17 Jun 2026, 12:00</strong>
           <span class='team'><img src='https://flagcdn.com/w80/cd.png' alt='' loading='lazy'><span class='team-name'>DR Congo</span><span class='owner'>Nick</span></span>
         </div>
@@ -1593,7 +1598,7 @@
           <span>Not Started</span>
         </div>
         <div class='teams-row'>
-          <span class='team'><img src='https://flagcdn.com/w80/pt.png' alt='' loading='lazy'><span class='team-name'>Portugal</span><span class='owner'>Seham</span></span>
+          <span class='team'><img src='https://flagcdn.com/w80/pt.png' alt='' loading='lazy'><span class='team-name'>Portugal</span><span class='owner'>Shyam</span></span>
           <strong class='score'>Tue 23 Jun 2026, 12:00</strong>
           <span class='team'><img src='https://flagcdn.com/w80/uz.png' alt='' loading='lazy'><span class='team-name'>Uzbekistan</span><span class='owner'>Tariq</span></span>
         </div>
@@ -1621,7 +1626,7 @@
         <div class='teams-row'>
           <span class='team'><img src='https://flagcdn.com/w80/co.png' alt='' loading='lazy'><span class='team-name'>Colombia</span><span class='owner'>Diggers</span></span>
           <strong class='score'>Sat 27 Jun 2026, 19:30</strong>
-          <span class='team'><img src='https://flagcdn.com/w80/pt.png' alt='' loading='lazy'><span class='team-name'>Portugal</span><span class='owner'>Seham</span></span>
+          <span class='team'><img src='https://flagcdn.com/w80/pt.png' alt='' loading='lazy'><span class='team-name'>Portugal</span><span class='owner'>Shyam</span></span>
         </div>
         <div class='venue'>Miami Stadium, Miami (Miami Gardens)</div>
       </article>
@@ -2139,15 +2144,10 @@
       </article>
     </section></div>
     </section>
-
-    <section id='people'>
-      <div class='section-heading'><h2>Sweepstake people</h2><p>Team ownership transcribed from the photo.</p></div>
-      <div class='people-grid'><article class='person-card'><h3>Alistair</h3><ul><li>Bosnia &amp; Herzegovina</li><li>Morocco</li><li>Switzerland</li></ul></article><article class='person-card'><h3>Andrew</h3><ul><li>Brazil</li><li>Cape Verde</li><li>Mexico</li></ul></article><article class='person-card'><h3>Ben</h3><ul><li>England</li><li>Iraq</li><li>Paraguay</li></ul></article><article class='person-card'><h3>Chris</h3><ul><li>Ghana</li><li>Spain</li><li>Sweden</li></ul></article><article class='person-card'><h3>Diggers</h3><ul><li>Colombia</li><li>Saudi Arabia</li><li>South Africa</li></ul></article><article class='person-card'><h3>Emma</h3><ul><li>Czech Republic</li><li>France</li><li>Ivory Coast</li></ul></article><article class='person-card'><h3>Extra</h3><ul><li>Belgium</li><li>Curacao</li><li>Ecuador</li></ul></article><article class='person-card'><h3>Jane</h3><ul><li>Japan</li><li>Qatar</li><li>Uruguay</li></ul></article><article class='person-card'><h3>Jennie</h3><ul><li>Austria</li><li>Netherlands</li><li>Panama</li></ul></article><article class='person-card'><h3>John C</h3><ul><li>Argentina</li><li>New Zealand</li><li>Turkey</li></ul></article><article class='person-card'><h3>Nick</h3><ul><li>Australia</li><li>DR Congo</li><li>Germany</li></ul></article><article class='person-card'><h3>Richard</h3><ul><li>South Korea</li><li>Tunisia</li><li>United States</li></ul></article><article class='person-card'><h3>Sean</h3><ul><li>Iran</li><li>Jordan</li><li>Senegal</li></ul></article><article class='person-card'><h3>Seham</h3><ul><li>Algeria</li><li>Haiti</li><li>Portugal</li></ul></article><article class='person-card'><h3>Tariq</h3><ul><li>Canada</li><li>Croatia</li><li>Uzbekistan</li></ul></article><article class='person-card'><h3>Tom</h3><ul><li>Egypt</li><li>Norway</li><li>Scotland</li></ul></article></div>
-    </section>
   </main>
 
   <footer>
-    <p>Last generated 2026-06-11 23:52 UTC from worldcup26.ir. Data source: worldcup26.ir. Built as static HTML.</p>
+    <p>Last generated 2026-06-12 00:25 UTC from worldcup26.ir. Data source: worldcup26.ir. Built as static HTML.</p>
   </footer>
   <script src='assets/site.js'></script>
 </body>

@@ -189,6 +189,37 @@ th { color: var(--muted); font-size: .75rem; text-transform: uppercase; letter-s
   white-space: nowrap;
 }
 .placeholder { color: var(--muted); font-style: italic; }
+.person-card,
+.group-card {
+  transition: opacity .18s ease, border-color .18s ease, box-shadow .18s ease, transform .18s ease;
+}
+.person-card {
+  cursor: pointer;
+}
+.person-card h3 { margin-bottom: .7rem; }
+.person-card:hover,
+.person-card:focus-visible {
+  border-color: rgba(23, 93, 220, .45);
+  box-shadow: 0 12px 30px rgba(23, 93, 220, .12);
+  outline: none;
+}
+.person-card.is-selected {
+  border-color: var(--accent);
+  box-shadow: 0 12px 30px rgba(23, 93, 220, .16);
+  transform: translateY(-1px);
+}
+.person-card.is-selected h3 {
+  color: var(--accent);
+}
+.person-filter-active .person-card.is-dimmed,
+.person-filter-active .match.is-dimmed,
+.person-filter-active .group-card.is-dimmed {
+  opacity: .28;
+}
+.person-filter-active .match.is-dimmed,
+.person-filter-active .group-card.is-dimmed {
+  filter: grayscale(.75);
+}
 .person-card ul { margin: 0; padding-left: 1.1rem; }
 .person-card li { margin: .25rem 0; }
 .empty { color: var(--muted); background: white; padding: 1rem; border: 1px dashed var(--line); border-radius: 1rem; }

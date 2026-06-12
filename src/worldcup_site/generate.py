@@ -396,6 +396,14 @@ def render_standings(tables: dict[str, list[dict[str, Any]]], people_map: dict[s
     sections = []
     for group, rows in tables.items():
         body = []
+        group_people = sorted(
+            {
+                team_owner(row.get("team", {}).get("name", ""), people_map)
+                for row in rows
+                if team_owner(row.get("team", {}).get("name", ""), people_map) != "—"
+            }
+        )
+        group_people_attr = html.escape("|".join(group_people), quote=True)
         for row in rows:
             all_stats = row.get("all", {})
             goals = all_stats.get("goals", {})
@@ -418,7 +426,7 @@ def render_standings(tables: dict[str, list[dict[str, Any]]], people_map: dict[s
             )
         sections.append(
             f"""
-            <section class='group-card' id='{html.escape(group.lower().replace(' ', '-'))}'>
+            <section class='group-card' id='{html.escape(group.lower().replace(' ', '-'))}' data-people='{group_people_attr}'>
               <h3>{html.escape(group)}</h3>
               <div class='table-wrap'>
                 <table>
@@ -487,20 +495,17 @@ def render_knockouts(fixtures: list[dict[str, Any]], rounds: list[str], people_m
 
 def render_people(people_map: dict[str, str]) -> str:
     by_person: dict[str, list[str]] = defaultdict(list)
-    canonical_seen: set[tuple[str, str]] = set()
     for team, person in people_map.items():
-        # Avoid duplicate alias-heavy display where obvious aliases are present.
-        key = (person, team.lower().replace("côte", "cote").replace("&", "and"))
-        if key in canonical_seen:
-            continue
-        canonical_seen.add(key)
-        if team in {"Cote d'Ivoire", "Congo DR", "Korea Republic", "USA", "Türkiye", "Bosnia and Herzegovina", "Cabo Verde", "Curaçao"}:
-            continue
         by_person[person].append(team)
     cards = []
     for person in sorted(by_person):
         teams = "".join(f"<li>{html.escape(team)}</li>" for team in sorted(by_person[person]))
-        cards.append(f"<article class='person-card'><h3>{html.escape(person)}</h3><ul>{teams}</ul></article>")
+        cards.append(
+            f"<article class='person-card' data-person='{html.escape(person, quote=True)}' "
+            f"role='button' tabindex='0' aria-pressed='false'>"
+            f"<h3>{html.escape(person)}</h3>"
+            f"<ul>{teams}</ul></article>"
+        )
     return "".join(cards)
 
 
@@ -538,13 +543,18 @@ def render_page(payload: ApiPayload) -> str:
   </header>
 
   <nav class='tabs' aria-label='Page sections'>
+    <a href='#people'>People</a>
     <a href='#groups'>Groups</a>
     <a href='#group-fixtures'>Group fixtures</a>
     <a href='#knockouts'>Knockouts</a>
-    <a href='#people'>People</a>
   </nav>
 
   <main>
+    <section id='people'>
+      <div class='section-heading'><h2>Sweepstake people</h2><p>Team ownership transcribed from the photo.</p></div>
+      <div class='people-grid'>{render_people(people_map)}</div>
+    </section>
+
     <section id='groups'>
       <div class='section-heading'><h2>Group tables</h2><p>Top two plus the eight best third-placed teams progress to the Round of 32.</p></div>
       <div class='grid groups-grid'>{render_standings(standings, people_map)}</div>
@@ -558,11 +568,6 @@ def render_page(payload: ApiPayload) -> str:
     <section id='knockouts'>
       <div class='section-heading'><h2>Knockout stages</h2><p>Round of 32 onwards.</p></div>
       <div class='knockout-grid'>{render_knockouts(fixtures, payload.rounds, people_map)}</div>
-    </section>
-
-    <section id='people'>
-      <div class='section-heading'><h2>Sweepstake people</h2><p>Team ownership transcribed from the photo.</p></div>
-      <div class='people-grid'>{render_people(people_map)}</div>
     </section>
   </main>
 
