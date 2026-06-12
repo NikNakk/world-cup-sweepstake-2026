@@ -32,27 +32,25 @@ cloudflare/worker/scheduled.js        Scheduled Worker and manual refresh endpoi
 cloudflare/worker/wrangler.toml       Worker config, cron trigger, and KV binding placeholder
 data/people_teams.json                Source sweepstake team-to-person mapping
 functions/[[path]].js                 Cloudflare Pages Function that serves the latest KV HTML
+scripts/build-site.js                 Node static HTML build using the shared Cloudflare renderer
 scripts/cloudflare-bootstrap.sh        Helper to create Pages and KV resources
-scripts/deploy-cloudflare.sh          One-command install/build/deploy helper
+scripts/deploy-cloudflare.sh           One-command install/build/deploy helper
+scripts/update-people-map.js           Regenerates the Worker people-map export from JSON
 site/assets/style.css                 Site styling
 site/assets/site.js                   Small progressive enhancement script
-src/worldcup_site/generate.py         Python local fallback static HTML generator
-requirements.txt                      Python dependencies for local builds
 ```
 
 ## Quick start locally
 
 ```bash
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-python -m src.worldcup_site.generate
-python -m http.server 8000 --directory site
+npm install
+npm run build
+npx wrangler pages dev site --compatibility-date=2025-06-01
 ```
 
-Then open `http://localhost:8000`.
+Then open the local URL printed by Wrangler, usually `http://localhost:8788`.
 
-If the API cannot be reached, the Python generator will use `.cache/last_payload.json` if one exists; otherwise it will still build the page with empty data. This makes local styling changes possible without needing a live API response.
+The build and live Cloudflare paths both use `cloudflare/lib/worldcup-renderer.js`, so API normalization and HTML rendering live in one JavaScript implementation. If the API cannot be reached during `npm run build`, the build script will use `.cache/last_payload.json` if one exists; otherwise it will still build the page with empty data. This makes local styling changes possible without needing a live API response.
 
 ## Cloudflare setup
 
@@ -91,7 +89,7 @@ npm run cf:worker:deploy
 
 ### 4. Optional: protect manual refreshes
 
-The cron trigger does not need a token. If you want to require a bearer token for manual `POST /refresh` calls, set an `UPDATE_TOKEN` secret on the Worker:
+The cron trigger does not need a token. Manual `POST /refresh` calls are disabled unless you set an `UPDATE_TOKEN` secret on the Worker:
 
 ```bash
 npx wrangler secret put UPDATE_TOKEN --config cloudflare/worker/wrangler.toml
@@ -105,25 +103,24 @@ curl -X POST \
   https://worldcup-sweepstake-updater.<your-workers-subdomain>.workers.dev/refresh
 ```
 
-Without `UPDATE_TOKEN`, `POST /refresh` remains open. You can always inspect the latest status with:
+Without `UPDATE_TOKEN`, `POST /refresh` returns `503` so the refresh endpoint is not accidentally left open. You can inspect the latest public, non-sensitive status with:
 
 ```bash
 curl https://worldcup-sweepstake-updater.<your-workers-subdomain>.workers.dev/health
 ```
+
+### Security notes
+
+- Keep `UPDATE_TOKEN` in Cloudflare Worker Secrets, not in `wrangler.toml` or source control. Local secret files such as `.dev.vars` and `.env` are ignored by Git.
+- The Pages Function and static fallback include baseline browser security headers, including CSP, `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, and `Permissions-Policy`.
+- If the updater Worker does not need a public manual refresh URL, consider setting `workers_dev = false` and using only the cron trigger, or protect any custom/manual route with Cloudflare Access.
 
 ## Changing the sweepstake mapping
 
 Edit `data/people_teams.json`, then regenerate the Cloudflare export:
 
 ```bash
-python - <<'PY'
-import json
-from pathlib import Path
-mapping = json.loads(Path('data/people_teams.json').read_text())
-Path('cloudflare/lib/people-map.js').write_text(
-    'const PEOPLE_MAP = ' + json.dumps(mapping, ensure_ascii=False, indent=2) + ';\n\nexport { PEOPLE_MAP };\n'
-)
-PY
+npm run sync:people-map
 ```
 
 Several aliases are included because APIs may use names such as `Democratic Republic of the Congo` rather than `DR Congo`, or `Côte d'Ivoire` rather than `Ivory Coast`.

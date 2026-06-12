@@ -11,5 +11,5 @@ binding = "WORLDCUP_SITE"
 id = "REPLACE_WITH_PRODUCTION_KV_NAMESPACE_ID"
 preview_id = "REPLACE_WITH_PREVIEW_KV_NAMESPACE_ID"
 
-# Optional: set this secret to require Authorization: Bearer <token> for POST /refresh.
+# Set this secret to enable manual POST /refresh with Authorization: Bearer <token>.
 # Run: npx wrangler secret put UPDATE_TOKEN --config cloudflare/worker/wrangler.toml
