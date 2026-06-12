@@ -480,14 +480,19 @@ function renderPage(payload, peopleMap) {
   <meta charset='utf-8'>
   <meta name='viewport' content='width=device-width, initial-scale=1'>
   <title>World Cup 2026 Sweepstake</title>
+  <link rel='icon' href='favicon.ico' sizes='any'>
+  <link rel='icon' href='assets/gastro-world-cup.png' type='image/png'>
   <link rel='stylesheet' href='assets/style.css'>
 </head>
 <body>
   <header class='hero'>
-    <div>
-      <p class='eyebrow'>World Cup 2026 wall chart</p>
-      <h1>RDUH Gastro Sweepstake</h1>
-      <p class='lead'>Fixtures, results, groups and knockout stages, with each team labelled by its person from the sweepstake sheet.</p>
+    <div class='brand-lockup'>
+      <img class='brand-mark' src='assets/gastro-world-cup.png' alt='' width='112' height='112'>
+      <div>
+        <p class='eyebrow'>World Cup 2026 wall chart</p>
+        <h1>RDUH Gastro Sweepstake</h1>
+        <p class='lead'>Fixtures, results, groups and knockout stages, with each team labelled by its person from the sweepstake sheet.</p>
+      </div>
     </div>
     <div class='stats' aria-label='Fixture filters'>
       <button type='button' data-fixture-filter='all' aria-pressed='false'><strong>${fixtures.length}</strong><span>fixtures</span></button>
