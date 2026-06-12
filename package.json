@@ -5,8 +5,7 @@
   "type": "module",
   "scripts": {
     "build": "node scripts/build-site.js",
-    "build:strict": "node scripts/build-site.js --no-cache",
-    "cf:pages:deploy": "npm run build:strict && wrangler pages deploy site --project-name worldcup-sweepstake --config cloudflare/pages/wrangler.toml",
+    "cf:pages:deploy": "npm run build && wrangler pages deploy site --project-name worldcup-sweepstake --config cloudflare/pages/wrangler.toml",
     "cf:worker:deploy": "wrangler deploy --config cloudflare/worker/wrangler.toml",
     "cf:deploy": "npm run cf:pages:deploy && npm run cf:worker:deploy",
     "sync:people-map": "node scripts/update-people-map.js"

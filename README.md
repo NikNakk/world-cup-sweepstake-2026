@@ -37,9 +37,8 @@ scripts/build-site.js                 Node static HTML build using the shared Cl
 scripts/cloudflare-bootstrap.sh        Helper to create Pages and KV resources
 scripts/deploy-cloudflare.sh           One-command install/build/deploy helper
 scripts/update-people-map.js           Regenerates the Worker people-map export from JSON
-site/_headers                         Cloudflare Pages static security headers
-site/assets/site.js                   Small progressive enhancement script
 site/assets/style.css                 Site styling
+site/assets/site.js                   Small progressive enhancement script
 ```
 
 ## Quick start locally
