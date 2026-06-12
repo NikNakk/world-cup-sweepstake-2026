@@ -25,6 +25,7 @@ Scheduled refreshes only rewrite the cached page when the API reports a live mat
 ## Repository structure
 
 ```text
+.github/workflows/deploy-cloudflare.yml  GitHub Actions production deployment workflow
 cloudflare/lib/people-map.js          Sweepstake mapping exported for Cloudflare Workers
 cloudflare/lib/worldcup-renderer.js   Worker-safe API client, update-window logic, and HTML renderer
 cloudflare/pages/wrangler.toml        Cloudflare Pages config and KV binding placeholder
@@ -32,27 +33,26 @@ cloudflare/worker/scheduled.js        Scheduled Worker and manual refresh endpoi
 cloudflare/worker/wrangler.toml       Worker config, cron trigger, and KV binding placeholder
 data/people_teams.json                Source sweepstake team-to-person mapping
 functions/[[path]].js                 Cloudflare Pages Function that serves the latest KV HTML
+scripts/build-site.js                 Node static HTML build using the shared Cloudflare renderer
 scripts/cloudflare-bootstrap.sh        Helper to create Pages and KV resources
-scripts/deploy-cloudflare.sh          One-command install/build/deploy helper
-site/assets/style.css                 Site styling
+scripts/deploy-cloudflare.sh           One-command install/build/deploy helper
+scripts/update-people-map.js           Regenerates the Worker people-map export from JSON
+site/_headers                         Cloudflare Pages static security headers
 site/assets/site.js                   Small progressive enhancement script
-src/worldcup_site/generate.py         Python local fallback static HTML generator
-requirements.txt                      Python dependencies for local builds
+site/assets/style.css                 Site styling
 ```
 
 ## Quick start locally
 
 ```bash
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-python -m src.worldcup_site.generate
-python -m http.server 8000 --directory site
+npm install
+npm run build
+npx wrangler pages dev site --compatibility-date=2025-06-01
 ```
 
-Then open `http://localhost:8000`.
+Then open the local URL printed by Wrangler, usually `http://localhost:8788`.
 
-If the API cannot be reached, the Python generator will use `.cache/last_payload.json` if one exists; otherwise it will still build the page with empty data. This makes local styling changes possible without needing a live API response.
+The build and live Cloudflare paths both use `cloudflare/lib/worldcup-renderer.js`, so API normalization and HTML rendering live in one JavaScript implementation. If the API cannot be reached during `npm run build`, the build script will use `.cache/last_payload.json` if one exists; otherwise it will still build the page with empty data. This makes local styling changes possible without needing a live API response.
 
 ## Cloudflare setup
 
@@ -78,20 +78,29 @@ Use the same production namespace ID for both configs so the scheduled Worker an
 
 ### 3. Deploy Pages and the scheduled Worker
 
+Pushes to `main` deploy automatically through `.github/workflows/deploy-cloudflare.yml`. Configure these GitHub Actions repository secrets before relying on the workflow:
+
+- `CLOUDFLARE_API_TOKEN` - a Cloudflare API token with permission to deploy the Pages project and Worker.
+- `CLOUDFLARE_ACCOUNT_ID` - the Cloudflare account ID that owns the Pages project, Worker, and KV namespace.
+
+You can also deploy manually from your machine:
+
 ```bash
 npm run cf:deploy
 ```
 
-You can also deploy each part separately:
+Or deploy each part separately:
 
 ```bash
 npm run cf:pages:deploy
 npm run cf:worker:deploy
 ```
 
+Production deploys use `npm run build:strict`, so the deploy fails rather than publishing an empty static fallback if the World Cup API is unavailable. Local `npm run build` still supports the cached/empty fallback for styling work.
+
 ### 4. Optional: protect manual refreshes
 
-The cron trigger does not need a token. If you want to require a bearer token for manual `POST /refresh` calls, set an `UPDATE_TOKEN` secret on the Worker:
+The cron trigger does not need a token. Manual `POST /refresh` calls are disabled unless you set an `UPDATE_TOKEN` secret on the Worker:
 
 ```bash
 npx wrangler secret put UPDATE_TOKEN --config cloudflare/worker/wrangler.toml
@@ -105,25 +114,24 @@ curl -X POST \
   https://worldcup-sweepstake-updater.<your-workers-subdomain>.workers.dev/refresh
 ```
 
-Without `UPDATE_TOKEN`, `POST /refresh` remains open. You can always inspect the latest status with:
+Without `UPDATE_TOKEN`, `POST /refresh` returns `503` so the refresh endpoint is not accidentally left open. You can inspect the latest public, non-sensitive status with:
 
 ```bash
 curl https://worldcup-sweepstake-updater.<your-workers-subdomain>.workers.dev/health
 ```
+
+### Security notes
+
+- Keep `UPDATE_TOKEN` in Cloudflare Worker Secrets, not in `wrangler.toml` or source control. Local secret files such as `.dev.vars` and `.env` are ignored by Git.
+- The Pages Function and static fallback include baseline browser security headers, including CSP, `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, and `Permissions-Policy`.
+- If the updater Worker does not need a public manual refresh URL, consider setting `workers_dev = false` and using only the cron trigger, or protect any custom/manual route with Cloudflare Access.
 
 ## Changing the sweepstake mapping
 
 Edit `data/people_teams.json`, then regenerate the Cloudflare export:
 
 ```bash
-python - <<'PY'
-import json
-from pathlib import Path
-mapping = json.loads(Path('data/people_teams.json').read_text())
-Path('cloudflare/lib/people-map.js').write_text(
-    'const PEOPLE_MAP = ' + json.dumps(mapping, ensure_ascii=False, indent=2) + ';\n\nexport { PEOPLE_MAP };\n'
-)
-PY
+npm run sync:people-map
 ```
 
 Several aliases are included because APIs may use names such as `Democratic Republic of the Congo` rather than `DR Congo`, or `Côte d'Ivoire` rather than `Ivory Coast`.

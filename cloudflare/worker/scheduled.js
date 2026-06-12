@@ -1,21 +1,40 @@
 import { PEOPLE_MAP } from '../lib/people-map.js';
 import { CACHE_KEYS, refreshSite } from '../lib/worldcup-renderer.js';
 
+const JSON_HEADERS = {
+  'content-type': 'application/json; charset=utf-8',
+  'cache-control': 'no-store',
+  'x-content-type-options': 'nosniff',
+};
+
 function jsonResponse(data, init = {}) {
   return new Response(JSON.stringify(data, null, 2), {
     ...init,
     headers: {
-      'content-type': 'application/json; charset=utf-8',
+      ...JSON_HEADERS,
       ...(init.headers ?? {}),
     },
   });
 }
 
-function isAuthorized(request, env) {
-  if (!env.UPDATE_TOKEN) return true;
+async function sha256(value) {
+  return new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value)));
+}
+
+function equalBytes(left, right) {
+  if (left.length !== right.length) return false;
+  let mismatch = 0;
+  for (let index = 0; index < left.length; index += 1) {
+    mismatch |= left[index] ^ right[index];
+  }
+  return mismatch === 0;
+}
+
+async function isAuthorized(request, env) {
+  if (!env.UPDATE_TOKEN) return false;
   const header = request.headers.get('authorization') ?? '';
   const token = header.startsWith('Bearer ') ? header.slice('Bearer '.length) : '';
-  return token === env.UPDATE_TOKEN;
+  return equalBytes(await sha256(token), await sha256(env.UPDATE_TOKEN));
 }
 
 export default {
@@ -35,7 +54,10 @@ export default {
       if (request.method !== 'POST') {
         return jsonResponse({ error: 'Use POST /refresh to trigger a manual refresh.' }, { status: 405 });
       }
-      if (!isAuthorized(request, env)) {
+      if (!env.UPDATE_TOKEN) {
+        return jsonResponse({ error: 'Manual refresh is disabled until UPDATE_TOKEN is configured.' }, { status: 503 });
+      }
+      if (!(await isAuthorized(request, env))) {
         return jsonResponse({ error: 'Unauthorized.' }, { status: 401 });
       }
       const status = await refreshSite(env.WORLDCUP_SITE, PEOPLE_MAP, { force: true });
