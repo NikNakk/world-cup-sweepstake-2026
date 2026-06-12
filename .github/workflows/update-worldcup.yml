@@ -2,6 +2,9 @@ name: Update World Cup site
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - main
   schedule:
     # Check every 5 minutes, but only build/deploy during match windows.
     - cron: '*/5 * * * *'
@@ -38,21 +41,21 @@ jobs:
         run: echo "should_update=$(python -m src.worldcup_site.generate --should-update-now)" >> "$GITHUB_OUTPUT"
 
       - name: Build static site
-        if: github.event_name == 'workflow_dispatch' || steps.match-window.outputs.should_update == 'true'
+        if: github.event_name != 'schedule' || steps.match-window.outputs.should_update == 'true'
         run: python -m src.worldcup_site.generate
 
       - name: Configure GitHub Pages
-        if: github.event_name == 'workflow_dispatch' || steps.match-window.outputs.should_update == 'true'
+        if: github.event_name != 'schedule' || steps.match-window.outputs.should_update == 'true'
         uses: actions/configure-pages@v5
 
       - name: Upload GitHub Pages artifact
-        if: github.event_name == 'workflow_dispatch' || steps.match-window.outputs.should_update == 'true'
+        if: github.event_name != 'schedule' || steps.match-window.outputs.should_update == 'true'
         uses: actions/upload-pages-artifact@v3
         with:
           path: site
 
   deploy:
-    if: github.event_name == 'workflow_dispatch' || needs.build.outputs.should_update == 'true'
+    if: github.event_name != 'schedule' || needs.build.outputs.should_update == 'true'
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
