@@ -452,7 +452,8 @@ function renderPeople(peopleMap) {
   }
   return Object.keys(byPerson).sort().map((person) => {
     const teams = byPerson[person].sort().map((team) => `<li>${escapeHtml(team)}</li>`).join('');
-    return `<article class='person-card' data-person='${escapeHtml(person)}' role='button' tabindex='0' aria-pressed='false'><h3>${escapeHtml(person)}</h3><ul>${teams}</ul></article>`;
+    const teamNames = byPerson[person].sort().join(', ');
+    return `<article class='person-card' data-person='${escapeHtml(person)}' title='${escapeHtml(teamNames)}' role='button' tabindex='0' aria-pressed='false'><h3>${escapeHtml(person)}</h3><ul>${teams}</ul></article>`;
   }).join('');
 }
 

@@ -156,6 +156,7 @@ th { color: var(--muted); font-size: .75rem; text-transform: uppercase; letter-s
 .match.live { border-left-color: #e03131; animation: pulse 1.5s infinite; }
 .match.upcoming { border-left-color: var(--warn); }
 .match[hidden],
+.group-card[hidden],
 .fixture-group[hidden],
 .knockout-round[hidden],
 #groups[hidden] {
@@ -215,8 +216,17 @@ th { color: var(--muted); font-size: .75rem; text-transform: uppercase; letter-s
 }
 .person-card {
   cursor: pointer;
+  padding: .75rem .9rem;
 }
-.person-card h3 { margin-bottom: .7rem; }
+.person-card h3 { margin: 0; }
+.person-card ul {
+  display: none;
+  margin: .7rem 0 0;
+  padding-left: 1.1rem;
+}
+.person-card.is-selected ul {
+  display: block;
+}
 .person-card:hover,
 .person-card:focus-visible {
   border-color: rgba(23, 93, 220, .45);
@@ -231,16 +241,9 @@ th { color: var(--muted); font-size: .75rem; text-transform: uppercase; letter-s
 .person-card.is-selected h3 {
   color: var(--accent);
 }
-.person-filter-active .person-card.is-dimmed,
-.person-filter-active .match.is-dimmed,
-.person-filter-active .group-card.is-dimmed {
+.person-filter-active .person-card.is-dimmed {
   opacity: .28;
 }
-.person-filter-active .match.is-dimmed,
-.person-filter-active .group-card.is-dimmed {
-  filter: grayscale(.75);
-}
-.person-card ul { margin: 0; padding-left: 1.1rem; }
 .person-card li { margin: .25rem 0; }
 .empty { color: var(--muted); background: white; padding: 1rem; border: 1px dashed var(--line); border-radius: 1rem; }
 footer { padding: 2rem clamp(1rem, 4vw, 4rem); color: var(--muted); border-top: 1px solid var(--line); }

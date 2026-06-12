@@ -20,32 +20,6 @@ function groupFeaturesPerson(group, person) {
   return group.dataset.people.split('|').includes(person);
 }
 
-function setSelectedPerson(person) {
-  selectedPerson = selectedPerson === person ? null : person;
-  document.body.classList.toggle('person-filter-active', Boolean(selectedPerson));
-
-  personCards.forEach((card) => {
-    const isSelected = card.dataset.person === selectedPerson;
-    card.classList.toggle('is-selected', isSelected);
-    card.classList.toggle('is-dimmed', Boolean(selectedPerson) && !isSelected);
-    card.setAttribute('aria-pressed', String(isSelected));
-  });
-
-  matchCards.forEach((match) => {
-    match.classList.toggle(
-      'is-dimmed',
-      Boolean(selectedPerson) && !matchFeaturesPerson(match, selectedPerson),
-    );
-  });
-
-  groupCards.forEach((group) => {
-    group.classList.toggle(
-      'is-dimmed',
-      Boolean(selectedPerson) && !groupFeaturesPerson(group, selectedPerson),
-    );
-  });
-}
-
 function matchPassesFixtureFilter(match) {
   if (!selectedFixtureFilter || selectedFixtureFilter === 'all') {
     return true;
@@ -53,13 +27,57 @@ function matchPassesFixtureFilter(match) {
   return match.classList.contains(selectedFixtureFilter);
 }
 
+function matchPassesPersonFilter(match) {
+  return !selectedPerson || matchFeaturesPerson(match, selectedPerson);
+}
+
 function sectionHasVisibleMatches(section) {
   return [...section.querySelectorAll('.match')].some((match) => !match.hidden);
 }
 
+function filtersAreActive() {
+  return Boolean(selectedFixtureFilter || selectedPerson);
+}
+
+function updatePersonCards() {
+  personCards.forEach((card) => {
+    const isSelected = card.dataset.person === selectedPerson;
+    card.classList.toggle('is-selected', isSelected);
+    card.classList.toggle('is-dimmed', Boolean(selectedPerson) && !isSelected);
+    card.setAttribute('aria-pressed', String(isSelected));
+  });
+}
+
+function updateFilteredContent() {
+  document.body.classList.toggle('person-filter-active', Boolean(selectedPerson));
+  document.body.classList.toggle('fixture-filter-active', Boolean(selectedFixtureFilter));
+
+  updatePersonCards();
+
+  matchCards.forEach((match) => {
+    match.hidden = !matchPassesFixtureFilter(match) || !matchPassesPersonFilter(match);
+  });
+
+  fixtureSections.forEach((section) => {
+    section.hidden = filtersAreActive() && !sectionHasVisibleMatches(section);
+  });
+
+  if (groupsSection) {
+    groupsSection.hidden = Boolean(selectedFixtureFilter);
+  }
+
+  groupCards.forEach((group) => {
+    group.hidden = Boolean(selectedPerson) && !groupFeaturesPerson(group, selectedPerson);
+  });
+}
+
+function setSelectedPerson(person) {
+  selectedPerson = selectedPerson === person ? null : person;
+  updateFilteredContent();
+}
+
 function setSelectedFixtureFilter(filter) {
   selectedFixtureFilter = selectedFixtureFilter === filter ? null : filter;
-  document.body.classList.toggle('fixture-filter-active', Boolean(selectedFixtureFilter));
 
   fixtureFilterButtons.forEach((button) => {
     const isSelected = button.dataset.fixtureFilter === selectedFixtureFilter;
@@ -67,17 +85,7 @@ function setSelectedFixtureFilter(filter) {
     button.setAttribute('aria-pressed', String(isSelected));
   });
 
-  matchCards.forEach((match) => {
-    match.hidden = !matchPassesFixtureFilter(match);
-  });
-
-  fixtureSections.forEach((section) => {
-    section.hidden = Boolean(selectedFixtureFilter) && !sectionHasVisibleMatches(section);
-  });
-
-  if (groupsSection) {
-    groupsSection.hidden = Boolean(selectedFixtureFilter);
-  }
+  updateFilteredContent();
 }
 
 personCards.forEach((card) => {
