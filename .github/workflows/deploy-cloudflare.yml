@@ -45,7 +45,7 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy site --project-name worldcup-sweepstake --config cloudflare/pages/wrangler.toml
+          command: pages deploy site --project-name worldcup-sweepstake
           gitHubToken: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Deploy scheduled Worker

@@ -29,7 +29,7 @@ Scheduled refreshes only rewrite the cached page when the API reports a live mat
 .github/workflows/deploy-cloudflare.yml  GitHub Actions production deployment workflow
 cloudflare/lib/people-map.js          Sweepstake mapping exported for Cloudflare Workers
 cloudflare/lib/worldcup-renderer.js   Worker-safe API client, update-window logic, and HTML renderer
-cloudflare/pages/wrangler.toml        Cloudflare Pages config and KV binding placeholder
+wrangler.toml                         Cloudflare Pages config and KV binding placeholder
 cloudflare/worker/scheduled.js        Scheduled Worker and manual refresh endpoints
 cloudflare/worker/wrangler.toml       Worker config, cron trigger, and KV binding placeholder
 data/people_teams.json                Source sweepstake team-to-person mapping
@@ -71,14 +71,14 @@ npx wrangler login
 
 The bootstrap helper creates a Pages project and prints the production and preview Workers KV namespace IDs. Copy those IDs into both files:
 
-- `cloudflare/pages/wrangler.toml`
+- `wrangler.toml`
 - `cloudflare/worker/wrangler.toml`
 
 Use the same production namespace ID for both configs so the scheduled Worker and Pages Function share the rendered page.
 
 ### 3. Deploy Pages and the scheduled Worker
 
-Pushes to `main` deploy automatically through `.github/workflows/deploy-cloudflare.yml`. Configure these GitHub Actions repository secrets before relying on the workflow:
+Pushes to `main` deploy automatically through `.github/workflows/deploy-cloudflare.yml`. Cloudflare Pages reads its Wrangler configuration from the repository root `wrangler.toml`; Pages does not support passing a custom config path to `wrangler pages deploy`. Configure these GitHub Actions repository secrets before relying on the workflow:
 
 - `CLOUDFLARE_API_TOKEN` - a Cloudflare API token with permission to deploy the Pages project and Worker.
 - `CLOUDFLARE_ACCOUNT_ID` - the Cloudflare account ID that owns the Pages project, Worker, and KV namespace.
