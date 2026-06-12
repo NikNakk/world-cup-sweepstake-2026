@@ -530,8 +530,8 @@ def render_page(payload: ApiPayload) -> str:
 <body>
   <header class='hero'>
     <div>
-      <p class='eyebrow'>Daily GitHub Pages wall chart</p>
-      <h1>World Cup 2026 Sweepstake</h1>
+      <p class='eyebrow'>World Cup 2026 wall chart</p>
+      <h1>RDUH Gastro Sweepstake</h1>
       <p class='lead'>Fixtures, results, groups and knockout stages, with each team labelled by its person from the sweepstake sheet.</p>
     </div>
     <div class='stats'>
