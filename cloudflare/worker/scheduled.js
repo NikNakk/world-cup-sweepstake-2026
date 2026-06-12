@@ -38,8 +38,26 @@ async function isAuthorized(request, env) {
 }
 
 export default {
-  async scheduled(_event, env, ctx) {
-    ctx.waitUntil(refreshSite(env.WORLDCUP_SITE, PEOPLE_MAP));
+  async scheduled(event, env, ctx) {
+    const startedAt = new Date().toISOString();
+    console.log('Scheduled refresh started.', {
+      cron: event.cron,
+      scheduledTime: new Date(event.scheduledTime).toISOString(),
+      startedAt,
+    });
+
+    ctx.waitUntil((async () => {
+      try {
+        const status = await refreshSite(env.WORLDCUP_SITE, PEOPLE_MAP);
+        console.log('Scheduled refresh finished.', status);
+      } catch (error) {
+        console.error('Scheduled refresh failed.', {
+          message: error?.message ?? String(error),
+          stack: error?.stack,
+        });
+        throw error;
+      }
+    })());
   },
 
   async fetch(request, env) {
@@ -60,7 +78,9 @@ export default {
       if (!(await isAuthorized(request, env))) {
         return jsonResponse({ error: 'Unauthorized.' }, { status: 401 });
       }
+      console.log('Manual refresh requested.', { path: url.pathname });
       const status = await refreshSite(env.WORLDCUP_SITE, PEOPLE_MAP, { force: true });
+      console.log('Manual refresh finished.', status);
       return jsonResponse(status);
     }
 

@@ -143,6 +143,49 @@ function shouldUpdateForGames(games, now = new Date()) {
   });
 }
 
+function previousLiveMatchesFinished(games, previousPayload) {
+  const liveFixtureIds = new Set(
+    (previousPayload?.fixtures ?? [])
+      .filter((fixture) => LIVE_STATUSES.has(fixture?.fixture?.status?.short))
+      .map((fixture) => String(fixture?.fixture?.id ?? ''))
+      .filter(Boolean),
+  );
+
+  if (!liveFixtureIds.size) return [];
+
+  return games
+    .filter((game) => liveFixtureIds.has(String(game?.id ?? '')) && isFinishedGame(game))
+    .map((game) => ({
+      id: asInt(game?.id),
+      home: game?.home_team_name_en ?? game?.home_team_label,
+      away: game?.away_team_name_en ?? game?.away_team_label,
+    }));
+}
+
+function summarizeGames(games, now = new Date()) {
+  return games.reduce((summary, game) => {
+    const isFinished = isFinishedGame(game);
+    const isLive = isLiveGame(game);
+    const kickoff = gameKickoffUtc(game);
+    const inActiveWindow = Boolean(
+      kickoff && !isFinished && kickoff <= now && now <= new Date(kickoff.getTime() + MATCH_UPDATE_WINDOW_MS),
+    );
+
+    summary.total += 1;
+    if (isFinished) summary.finished += 1;
+    else if (isLive) summary.live += 1;
+    else summary.upcoming += 1;
+    if (inActiveWindow) summary.activeWindow += 1;
+    return summary;
+  }, {
+    total: 0,
+    finished: 0,
+    live: 0,
+    upcoming: 0,
+    activeWindow: 0,
+  });
+}
+
 function teamPayload(team, fallbackName = null) {
   const name = team?.name_en ?? fallbackName;
   return name ? { name, logo: team?.flag } : null;
@@ -492,12 +535,30 @@ function renderPage(payload, peopleMap) {
 
 async function refreshSite(kv, peopleMap, options = {}) {
   const games = await apiGet('get/games', 'games');
-  const shouldUpdate = options.force || shouldUpdateForGames(games);
+  const checkedAt = new Date();
+  const previousPayload = await kv.get(CACHE_KEYS.payload, 'json');
+  const finishedPreviouslyLiveMatches = previousLiveMatchesFinished(games, previousPayload);
+  const gameSummary = summarizeGames(games, checkedAt);
+  const hasFinishedPreviouslyLiveMatch = finishedPreviouslyLiveMatches.length > 0;
+  const shouldUpdate = options.force || shouldUpdateForGames(games, checkedAt) || hasFinishedPreviouslyLiveMatch;
+  const reason = options.force
+    ? 'Forced refresh.'
+    : hasFinishedPreviouslyLiveMatch
+      ? 'Previously live match has finished.'
+      : 'Match is live or inside its update window.';
+  console.log('Refresh decision calculated.', {
+    force: Boolean(options.force),
+    shouldUpdate,
+    gameSummary,
+    finishedPreviouslyLiveMatches,
+  });
   if (!shouldUpdate) {
     const status = {
       updated: false,
       reason: 'No live match or active match update window.',
-      checkedAt: new Date().toISOString(),
+      checkedAt: checkedAt.toISOString(),
+      gameSummary,
+      finishedPreviouslyLiveMatches,
     };
     await kv.put(CACHE_KEYS.status, JSON.stringify(status, null, 2));
     return status;
@@ -519,10 +580,12 @@ async function refreshSite(kv, peopleMap, options = {}) {
   const html = renderPage(payload, peopleMap);
   const status = {
     updated: true,
-    reason: options.force ? 'Forced refresh.' : 'Match is live or inside its update window.',
-    checkedAt: new Date().toISOString(),
+    reason,
+    checkedAt: checkedAt.toISOString(),
     generatedAt: payload.generatedAt,
     fixtures: payload.fixtures.length,
+    gameSummary,
+    finishedPreviouslyLiveMatches,
   };
   await Promise.all([
     kv.put(CACHE_KEYS.html, html),
@@ -539,4 +602,6 @@ export {
   refreshSite,
   renderPage,
   shouldUpdateForGames,
+  previousLiveMatchesFinished,
+  summarizeGames,
 };
