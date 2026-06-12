@@ -13,8 +13,9 @@ No API key is required for read access.
 
 ## Cloudflare deployment model
 
-This repository no longer uses GitHub Actions. It is designed for Cloudflare's free tier:
+This repository is designed for Cloudflare's free tier and includes a GitHub Actions workflow for production deployment:
 
+- **GitHub Actions** deploys the Cloudflare Pages site and scheduled Worker on pushes to `main`.
 - **Cloudflare Pages** hosts the static assets in `site/` and the Pages Function in `functions/[[path]].js`.
 - **Cloudflare Workers Cron Triggers** run `cloudflare/worker/scheduled.js` every five minutes during Cloudflare's scheduled window.
 - **Workers KV** stores the latest rendered `index.html`, source payload, and update status so the page can be refreshed without committing generated HTML or running CI.
