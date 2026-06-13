@@ -35,6 +35,90 @@ const TEAM_DISPLAY_NAMES = {
   'Democratic Republic of the Congo': 'DR Congo',
 };
 
+
+const BROADCASTER_TEAM_ALIASES = {
+  Curacao: 'Curaçao',
+  'DR Congo': 'Democratic Republic of the Congo',
+};
+
+const GROUP_STAGE_BROADCASTERS = [
+  ['Mexico', 'South Africa', 'ITV1'],
+  ['South Korea', 'Czech Republic', 'ITV1'],
+  ['Canada', 'Bosnia and Herzegovina', 'BBC One'],
+  ['United States', 'Paraguay', 'BBC One'],
+  ['Qatar', 'Switzerland', 'ITV1'],
+  ['Brazil', 'Morocco', 'BBC One'],
+  ['Haiti', 'Scotland', 'BBC One'],
+  ['Australia', 'Turkey', 'ITV1'],
+  ['Germany', 'Curacao', 'ITV1'],
+  ['Netherlands', 'Japan', 'ITV1'],
+  ['Ivory Coast', 'Ecuador', 'BBC One'],
+  ['Sweden', 'Tunisia', 'ITV1'],
+  ['Spain', 'Cape Verde', 'ITV1'],
+  ['Belgium', 'Egypt', 'BBC One'],
+  ['Saudi Arabia', 'Uruguay', 'ITV1'],
+  ['Iran', 'New Zealand', 'BBC One'],
+  ['France', 'Senegal', 'BBC One'],
+  ['Iraq', 'Norway', 'BBC One'],
+  ['Argentina', 'Algeria', 'ITV1'],
+  ['Austria', 'Jordan', 'BBC One'],
+  ['Portugal', 'DR Congo', 'BBC One'],
+  ['England', 'Croatia', 'ITV1'],
+  ['Ghana', 'Panama', 'ITV1'],
+  ['Uzbekistan', 'Colombia', 'BBC One'],
+  ['Czech Republic', 'South Africa', 'BBC One'],
+  ['Switzerland', 'Bosnia and Herzegovina', 'ITV1'],
+  ['Canada', 'Qatar', 'ITV1'],
+  ['Mexico', 'South Korea', 'BBC Two'],
+  ['United States', 'Australia', 'BBC One'],
+  ['Scotland', 'Morocco', 'ITV1/STV'],
+  ['Brazil', 'Haiti', 'ITV1'],
+  ['Turkey', 'Paraguay', 'ITV1'],
+  ['Netherlands', 'Sweden', 'BBC One'],
+  ['Germany', 'Ivory Coast', 'ITV1'],
+  ['Ecuador', 'Curacao', 'BBC One'],
+  ['Tunisia', 'Japan', 'BBC One'],
+  ['Spain', 'Saudi Arabia', 'BBC One'],
+  ['Belgium', 'Iran', 'ITV1'],
+  ['Cape Verde', 'Uruguay', 'BBC One'],
+  ['New Zealand', 'Egypt', 'ITV1'],
+  ['Argentina', 'Austria', 'BBC One'],
+  ['France', 'Iraq', 'BBC One'],
+  ['Norway', 'Senegal', 'ITV1'],
+  ['Jordan', 'Algeria', 'ITV1'],
+  ['Portugal', 'Uzbekistan', 'ITV1'],
+  ['England', 'Ghana', 'BBC One'],
+  ['Croatia', 'Panama', 'BBC One'],
+  ['Colombia', 'DR Congo', 'ITV1'],
+  ['Canada', 'Switzerland', 'ITV1'],
+  ['Scotland', 'Brazil', 'BBC One'],
+  ['Mexico', 'Czech Republic', 'BBC One'],
+  ['Germany', 'Ecuador', 'BBC One'],
+  ['Japan', 'Sweden', 'BBC One'],
+  ['United States', 'Turkey', 'ITV1'],
+  ['France', 'Norway', 'ITV1'],
+  ['Colombia', 'Portugal', 'BBC One'],
+  ['Cape Verde', 'Saudi Arabia', 'ITV1'],
+  ['Algeria', 'Austria', 'BBC One'],
+  ['Egypt', 'Iran', 'BBC One'],
+  ['England', 'Panama', 'ITV1'],
+  ['Bosnia and Herzegovina', 'Qatar', 'ITV1'],
+  ['Morocco', 'Haiti', 'BBC One'],
+  ['South Africa', 'South Korea', 'BBC One'],
+  ['Curacao', 'Ivory Coast', 'BBC One'],
+  ['Netherlands', 'Tunisia', 'BBC One'],
+  ['Paraguay', 'Australia', 'ITV1'],
+  ['Senegal', 'Iraq', 'ITV1'],
+  ['DR Congo', 'Uzbekistan', 'BBC One'],
+  ['Uruguay', 'Spain', 'ITV1'],
+  ['Argentina', 'Jordan', 'BBC One'],
+  ['New Zealand', 'Belgium', 'BBC One'],
+  ['Croatia', 'Ghana', 'ITV1'],
+].reduce((map, [home, away, broadcaster]) => {
+  map.set(broadcasterKey(home, away), broadcaster);
+  return map;
+}, new Map());
+
 const ROUND_NAMES = {
   r32: 'Round of 32',
   r16: 'Round of 16',
@@ -353,6 +437,30 @@ function matchClass(match) {
   return 'upcoming';
 }
 
+
+function broadcasterTeamName(teamName) {
+  return BROADCASTER_TEAM_ALIASES[teamName] ?? teamName;
+}
+
+function broadcasterKey(home, away) {
+  return [broadcasterTeamName(home), broadcasterTeamName(away)].sort().join(' vs ');
+}
+
+function matchBroadcaster(match) {
+  const round = match?.league?.round ?? '';
+  if (round === 'Final') return 'BBC One + ITV1';
+  if (!round.includes('Group')) return null;
+  const home = match?.teams?.home?.name;
+  const away = match?.teams?.away?.name;
+  if (!home || !away) return null;
+  return GROUP_STAGE_BROADCASTERS.get(broadcasterKey(home, away)) ?? null;
+}
+
+function renderBroadcasterBadge(match) {
+  const broadcaster = matchBroadcaster(match);
+  return broadcaster ? `<span class='broadcaster-badge' title='TV broadcaster'>${escapeHtml(broadcaster)}</span>` : '';
+}
+
 function renderMatch(match, peopleMap) {
   const fixture = match.fixture ?? {};
   const venue = fixture.venue ?? {};
@@ -360,7 +468,7 @@ function renderMatch(match, peopleMap) {
   const round = match.league?.round ?? '';
   const venueText = [venue.name, venue.city].filter(Boolean).join(', ');
   return `<article class='match ${matchClass(match)}'>
-    <div class='match-meta'><span>${escapeHtml(round)}</span><span>${escapeHtml(status.long ?? status.short ?? '')}</span></div>
+    <div class='match-meta'><span>${escapeHtml(round)}</span><span class='match-meta-right'>${renderBroadcasterBadge(match)}<span>${escapeHtml(status.long ?? status.short ?? '')}</span></span></div>
     <div class='teams-row'>
       ${displayTeam(match.teams?.home, peopleMap)}
       <strong class='score'>${escapeHtml(scoreOrTime(match))}</strong>
