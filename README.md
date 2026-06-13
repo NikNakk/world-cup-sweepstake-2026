@@ -15,13 +15,13 @@ No API key is required for read access.
 
 This repository is designed for Cloudflare's free tier and includes a GitHub Actions workflow for production deployment:
 
-- **GitHub Actions** deploys the Cloudflare Pages site and scheduled Worker on pushes to `main`.
+- **GitHub Actions** deploys the Cloudflare Pages site and scheduled Worker on pushes to `main`, then calls the deployed Worker refresh endpoint so the Worker run appears in Worker logs and rewrites the shared KV cache.
 - **Cloudflare Pages** hosts the static assets in `site/` and the Pages Function in `functions/[[path]].js`.
 - **Cloudflare Workers Cron Triggers** run `cloudflare/worker/scheduled.js` every five minutes during Cloudflare's scheduled window.
 - **Workers KV** stores the latest rendered `index.html`, source payload, and update status so the page can be refreshed without committing generated HTML or running CI.
 - The Pages Function serves the KV-backed `index.html` for `/` and `/index.html`, then lets Cloudflare Pages serve CSS, JavaScript, and JSON assets normally.
 
-Deployments publish the freshly built render to Workers KV after both the Pages Function and scheduled Worker are deployed, so renderer or mapping changes go live even when there are no match updates. Scheduled refreshes only rewrite the cached page when the API reports a live match, or when an unfinished match is inside its scheduled three-hour kickoff window. A manual `POST /refresh` endpoint on the Worker can force a refresh.
+Deployments call the freshly deployed Worker after both the Pages Function and scheduled Worker are deployed, forcing it to fetch the latest API payload and rewrite Workers KV so renderer or mapping changes go live even when there are no match updates. Scheduled refreshes only rewrite the cached page when the API reports a live match, or when an unfinished match is inside its scheduled three-hour kickoff window. A manual `POST /refresh` endpoint on the Worker can force the same refresh.
 
 ## Repository structure
 
@@ -83,6 +83,8 @@ Pushes to `main` deploy automatically through `.github/workflows/deploy-cloudfla
 
 - `CLOUDFLARE_API_TOKEN` - a Cloudflare API token with permission to deploy the Pages project and Worker.
 - `CLOUDFLARE_ACCOUNT_ID` - the Cloudflare account ID that owns the Pages project, Worker, and KV namespace.
+- `WORKER_REFRESH_TOKEN` - a GitHub Actions secret whose value matches the Cloudflare Worker `UPDATE_TOKEN` secret.
+- `WORKER_REFRESH_URL` - a GitHub Actions repository variable containing the Worker origin, for example `https://worldcup-sweepstake-updater.<your-workers-subdomain>.workers.dev`.
 
 You can also deploy manually from your machine:
 
@@ -97,7 +99,7 @@ npm run cf:pages:deploy
 npm run cf:worker:deploy
 ```
 
-Production deploys use `npm run build:strict`, so the deploy fails rather than publishing an empty static fallback if the World Cup API is unavailable. The production workflow then uploads the rendered `site/index.html`, `site/payload.json`, and `site/last-update.json` artifacts into Workers KV after the Cloudflare Pages and scheduled Worker deploys complete. This makes every deployment refresh the page render even if the scheduled updater would otherwise skip work because no matches are live or inside the update window. Local `npm run build` still supports the cached/empty fallback for styling work.
+Production deploys use `npm run build:strict`, so the deploy fails rather than publishing an empty static fallback if the World Cup API is unavailable. The production workflow then sends an authenticated `POST /refresh` request to the deployed Worker after the Cloudflare Pages and scheduled Worker deploys complete. This makes every deployment produce an explicit Worker invocation in the logs and refresh the page render even if the scheduled updater would otherwise skip work because no matches are live or inside the update window. Local `npm run build` still supports the cached/empty fallback for styling work.
 
 ### 4. Optional: protect manual refreshes
 

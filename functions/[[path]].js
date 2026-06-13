@@ -11,7 +11,7 @@ const SECURITY_HEADERS = {
 
 const HTML_HEADERS = {
   'content-type': 'text/html; charset=utf-8',
-  'cache-control': 'public, max-age=60',
+  'cache-control': 'public, max-age=30',
   ...SECURITY_HEADERS,
 };
 
