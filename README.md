@@ -21,7 +21,7 @@ This repository is designed for Cloudflare's free tier and includes a GitHub Act
 - **Workers KV** stores the latest rendered `index.html`, source payload, and update status so the page can be refreshed without committing generated HTML or running CI.
 - The Pages Function serves the KV-backed `index.html` for `/` and `/index.html`, then lets Cloudflare Pages serve CSS, JavaScript, and JSON assets normally.
 
-Scheduled refreshes only rewrite the cached page when the API reports a live match, or when an unfinished match is inside its scheduled three-hour kickoff window. A manual `POST /refresh` endpoint on the Worker can force a refresh.
+Deployments publish the freshly built render to Workers KV after both the Pages Function and scheduled Worker are deployed, so renderer or mapping changes go live even when there are no match updates. Scheduled refreshes only rewrite the cached page when the API reports a live match, or when an unfinished match is inside its scheduled three-hour kickoff window. A manual `POST /refresh` endpoint on the Worker can force a refresh.
 
 ## Repository structure
 
@@ -37,6 +37,7 @@ functions/[[path]].js                 Cloudflare Pages Function that serves the 
 scripts/build-site.js                 Node static HTML build using the shared Cloudflare renderer
 scripts/cloudflare-bootstrap.sh        Helper to create Pages and KV resources
 scripts/deploy-cloudflare.sh           One-command install/build/deploy helper
+scripts/publish-rendered-kv.sh         Publishes the latest deployment render into Workers KV
 scripts/update-people-map.js           Regenerates the Worker people-map export from JSON
 site/assets/style.css                 Site styling
 site/assets/site.js                   Small progressive enhancement script
@@ -96,7 +97,7 @@ npm run cf:pages:deploy
 npm run cf:worker:deploy
 ```
 
-Production deploys use `npm run build:strict`, so the deploy fails rather than publishing an empty static fallback if the World Cup API is unavailable. Local `npm run build` still supports the cached/empty fallback for styling work.
+Production deploys use `npm run build:strict`, so the deploy fails rather than publishing an empty static fallback if the World Cup API is unavailable. The production workflow then uploads the rendered `site/index.html`, `site/payload.json`, and `site/last-update.json` artifacts into Workers KV after the Cloudflare Pages and scheduled Worker deploys complete. This makes every deployment refresh the page render even if the scheduled updater would otherwise skip work because no matches are live or inside the update window. Local `npm run build` still supports the cached/empty fallback for styling work.
 
 ### 4. Optional: protect manual refreshes
 
@@ -160,3 +161,5 @@ Current mapping transcribed from the image:
 ## API refresh notes
 
 Cloudflare runs the Worker cron every 5 minutes using `3-59/5 * * * *`. Scheduled runs only render and store a new page when the API reports a live match, or when an unfinished match is within its scheduled 3-hour kickoff window. Manual Worker refreshes always render and store a new page.
+
+Deployments are the other forced-render path: `npm run build:strict` writes `site/index.html`, `site/payload.json`, and `site/last-update.json`, then the GitHub Actions workflow and `npm run cf:deploy` publish those files into the shared Workers KV namespace.
