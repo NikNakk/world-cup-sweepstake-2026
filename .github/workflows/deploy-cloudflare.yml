@@ -54,3 +54,24 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           command: deploy --config cloudflare/worker/wrangler.toml
+
+      - name: Publish deployment render to KV
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: kv key put site:index.html --path site/index.html --namespace-id d595e9262e6d467fb1217fb41920af9c
+
+      - name: Publish deployment payload to KV
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: kv key put site:payload.json --path site/payload.json --namespace-id d595e9262e6d467fb1217fb41920af9c
+
+      - name: Publish deployment status to KV
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: kv key put site:last-update.json --path site/last-update.json --namespace-id d595e9262e6d467fb1217fb41920af9c

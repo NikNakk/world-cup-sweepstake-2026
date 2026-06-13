@@ -4,3 +4,5 @@ node_modules/
 .DS_Store
 .dev.vars
 .env
+site/payload.json
+site/last-update.json

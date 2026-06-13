@@ -69,6 +69,15 @@ async function build() {
 
   await mkdir(ASSETS_DIR, { recursive: true });
   await writeFile(join(SITE_DIR, 'index.html'), html, 'utf8');
+  await writeFile(join(SITE_DIR, 'payload.json'), `${JSON.stringify(payload, null, 2)}\n`, 'utf8');
+  await writeFile(join(SITE_DIR, 'last-update.json'), `${JSON.stringify({
+    updated: true,
+    reason: 'Rendered during deployment build.',
+    checkedAt: new Date().toISOString(),
+    generatedAt: payload.generatedAt,
+    fixtures: payload.fixtures.length,
+    source: payload.source,
+  }, null, 2)}\n`, 'utf8');
   await copyFile(join(DATA_DIR, 'people_teams.json'), join(SITE_DIR, 'people_teams.json'));
 
   console.log(`Built site/index.html with ${payload.fixtures.length} fixtures from ${payload.source}.`);
