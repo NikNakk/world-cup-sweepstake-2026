@@ -217,7 +217,7 @@ function normalizeFixtures(games, teams, stadiums) {
     return {
       fixture: {
         id: asInt(game?.id),
-        date: parseWorldCupDate(game?.local_date),
+        date: gameKickoffUtc(game)?.toISOString() ?? parseWorldCupDate(game?.local_date),
         status: matchStatus(game),
         venue: {
           name: stadium.fifa_name ?? stadium.name_en,
@@ -313,14 +313,29 @@ function formatDate(dateString) {
   const parsed = new Date(dateString);
   if (Number.isNaN(parsed.getTime())) return dateString;
   return new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Europe/London',
     weekday: 'short',
     day: 'numeric',
     month: 'short',
     year: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
+    timeZoneName: 'short',
     hour12: false,
   }).format(parsed).replace(',', '');
+}
+
+function formatTime(dateString) {
+  if (!dateString) return 'TBC';
+  const parsed = new Date(dateString);
+  if (Number.isNaN(parsed.getTime())) return dateString;
+  return new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Europe/London',
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZoneName: 'short',
+    hour12: false,
+  }).format(parsed);
 }
 
 function scoreOrTime(match) {
@@ -328,7 +343,7 @@ function scoreOrTime(match) {
   if (FINISHED_STATUSES.has(status) || LIVE_STATUSES.has(status)) {
     return `${match?.goals?.home ?? '–'}–${match?.goals?.away ?? '–'}`;
   }
-  return formatDate(match?.fixture?.date).split(',').at(-1).trim();
+  return formatTime(match?.fixture?.date);
 }
 
 function matchClass(match) {
@@ -373,6 +388,73 @@ function buildTeamToGroup(tables) {
     }
   }
   return mapping;
+}
+
+
+function rankingValue(row) {
+  const all = row?.all ?? {};
+  const goals = all.goals ?? {};
+  return [
+    asInt(row?.points),
+    asInt(row?.goalsDiff),
+    asInt(goals.for),
+    -asInt(goals.against),
+  ];
+}
+
+function compareRankingRows(a, b) {
+  const left = rankingValue(a);
+  const right = rankingValue(b);
+  for (let index = 0; index < left.length; index += 1) {
+    if (left[index] !== right[index]) return right[index] - left[index];
+  }
+  return String(a?.team?.name ?? '').localeCompare(String(b?.team?.name ?? ''));
+}
+
+function groupFixturesFinished(fixtures, group, teamGroups) {
+  const groupFixturesForGroup = fixtures.filter((fixture) => {
+    const round = fixture.league?.round ?? '';
+    if (!round.includes('Group')) return false;
+    return teamGroups[fixture.teams?.home?.name] === group || teamGroups[fixture.teams?.away?.name] === group;
+  });
+  return groupFixturesForGroup.length > 0 && groupFixturesForGroup.every((fixture) => FINISHED_STATUSES.has(fixture.fixture?.status?.short));
+}
+
+function findLosingTeam(match) {
+  if (!FINISHED_STATUSES.has(match?.fixture?.status?.short)) return null;
+  const homeGoals = match?.goals?.home;
+  const awayGoals = match?.goals?.away;
+  if (!Number.isFinite(homeGoals) || !Number.isFinite(awayGoals) || homeGoals === awayGoals) return null;
+  return homeGoals < awayGoals ? match?.teams?.home?.name : match?.teams?.away?.name;
+}
+
+function getEliminatedTeams(standings, fixtures, teamGroups) {
+  const eliminated = new Set();
+  const finishedGroupRows = [];
+
+  for (const [group, rows] of Object.entries(standings)) {
+    if (!groupFixturesFinished(fixtures, group, teamGroups)) continue;
+    const sortedRows = [...rows].sort(compareRankingRows);
+    sortedRows.forEach((row, index) => {
+      if (index >= 3 && row?.team?.name) eliminated.add(row.team.name);
+    });
+    const thirdPlaced = sortedRows[2];
+    if (thirdPlaced) finishedGroupRows.push(thirdPlaced);
+  }
+
+  if (finishedGroupRows.length >= 12) {
+    [...finishedGroupRows].sort(compareRankingRows).slice(8).forEach((row) => {
+      if (row?.team?.name) eliminated.add(row.team.name);
+    });
+  }
+
+  fixtures
+    .filter((fixture) => !(fixture.league?.round ?? '').includes('Group'))
+    .map(findLosingTeam)
+    .filter(Boolean)
+    .forEach((team) => eliminated.add(team));
+
+  return eliminated;
 }
 
 function renderStandings(standings, peopleMap) {
@@ -444,16 +526,22 @@ function renderKnockouts(fixtures, rounds, peopleMap) {
   }).join('');
 }
 
-function renderPeople(peopleMap) {
+function renderPeople(peopleMap, eliminatedTeams = new Set()) {
   const byPerson = {};
   for (const [team, person] of Object.entries(peopleMap)) {
     byPerson[person] ??= [];
     byPerson[person].push(team);
   }
   return Object.keys(byPerson).sort().map((person) => {
-    const teams = byPerson[person].sort().map((team) => `<li>${escapeHtml(team)}</li>`).join('');
-    const teamNames = byPerson[person].sort().join(', ');
-    return `<article class='person-card' data-person='${escapeHtml(person)}' title='${escapeHtml(teamNames)}' role='button' tabindex='0' aria-pressed='false'><h3>${escapeHtml(person)}</h3><ul>${teams}</ul></article>`;
+    const sortedTeams = byPerson[person].sort();
+    const allTeamsEliminated = sortedTeams.every((team) => eliminatedTeams.has(team));
+    const teams = sortedTeams.map((team) => {
+      const className = eliminatedTeams.has(team) ? " class='team-eliminated'" : '';
+      return `<li${className}>${escapeHtml(team)}</li>`;
+    }).join('');
+    const teamNames = sortedTeams.join(', ');
+    const personClass = allTeamsEliminated ? " class='person-eliminated'" : '';
+    return `<article class='person-card' data-person='${escapeHtml(person)}' title='${escapeHtml(teamNames)}' role='button' tabindex='0' aria-pressed='false'><h3${personClass}>${escapeHtml(person)}</h3><ul>${teams}</ul></article>`;
   }).join('');
 }
 
@@ -464,6 +552,7 @@ function renderPage(payload, peopleMap) {
   const finished = fixtures.filter((fixture) => FINISHED_STATUSES.has(fixture.fixture?.status?.short)).length;
   const live = fixtures.filter((fixture) => LIVE_STATUSES.has(fixture.fixture?.status?.short)).length;
   const upcoming = Math.max(fixtures.length - finished - live, 0);
+  const eliminatedTeams = getEliminatedTeams(standings, fixtures, teamGroups);
   const generated = new Intl.DateTimeFormat('en-GB', {
     timeZone: 'UTC',
     year: 'numeric',
@@ -512,7 +601,7 @@ function renderPage(payload, peopleMap) {
   <main>
     <section id='people'>
       <div class='section-heading'><h2>Sweepstake people</h2><p>Team ownership transcribed from the photo.</p></div>
-      <div class='people-grid'>${renderPeople(peopleMap)}</div>
+      <div class='people-grid'>${renderPeople(peopleMap, eliminatedTeams)}</div>
     </section>
 
     <section id='groups'>

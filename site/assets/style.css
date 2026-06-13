@@ -257,6 +257,13 @@ th { color: var(--muted); font-size: .75rem; text-transform: uppercase; letter-s
   opacity: .28;
 }
 .person-card li { margin: .25rem 0; }
+.person-card .person-eliminated,
+.person-card .team-eliminated {
+  color: var(--muted);
+  text-decoration: line-through;
+  text-decoration-thickness: .12em;
+}
+
 .empty { color: var(--muted); background: white; padding: 1rem; border: 1px dashed var(--line); border-radius: 1rem; }
 footer { padding: 2rem clamp(1rem, 4vw, 4rem); color: var(--muted); border-top: 1px solid var(--line); }
 
