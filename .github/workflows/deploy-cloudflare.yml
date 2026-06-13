@@ -55,23 +55,21 @@ jobs:
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           command: deploy --config cloudflare/worker/wrangler.toml
 
-      - name: Publish deployment render to KV
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: kv key put site:index.html --path site/index.html --namespace-id d595e9262e6d467fb1217fb41920af9c
-
-      - name: Publish deployment payload to KV
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: kv key put site:payload.json --path site/payload.json --namespace-id d595e9262e6d467fb1217fb41920af9c
-
-      - name: Publish deployment status to KV
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: kv key put site:last-update.json --path site/last-update.json --namespace-id d595e9262e6d467fb1217fb41920af9c
+      - name: Trigger deployed Worker refresh
+        env:
+          WORKER_REFRESH_URL: ${{ vars.WORKER_REFRESH_URL }}
+          WORKER_REFRESH_TOKEN: ${{ secrets.WORKER_REFRESH_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${WORKER_REFRESH_URL:-}" ]]; then
+            echo "Missing repository variable WORKER_REFRESH_URL (for example: https://worldcup-sweepstake-updater.<your-workers-subdomain>.workers.dev)." >&2
+            exit 1
+          fi
+          if [[ -z "${WORKER_REFRESH_TOKEN:-}" ]]; then
+            echo "Missing repository secret WORKER_REFRESH_TOKEN. It must match the Worker's UPDATE_TOKEN secret." >&2
+            exit 1
+          fi
+          curl --fail --show-error --silent --request POST \
+            --header "Authorization: Bearer ${WORKER_REFRESH_TOKEN}" \
+            --header "Accept: application/json" \
+            "${WORKER_REFRESH_URL%/}/refresh"
