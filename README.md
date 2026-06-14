@@ -15,13 +15,13 @@ No API key is required for read access.
 
 This repository is designed for Cloudflare's free tier and includes a GitHub Actions workflow for production deployment:
 
-- **GitHub Actions** deploys the Cloudflare Pages site and scheduled Worker on pushes to `main`, then calls the deployed Worker refresh endpoint so the Worker run appears in Worker logs and rewrites the shared KV cache.
+- **GitHub Actions** deploys the Cloudflare Pages site and updater Worker on pushes to `main`, then calls the deployed Worker refresh endpoint so the Worker run appears in Worker logs and rewrites the shared KV cache.
 - **Cloudflare Pages** hosts the static assets in `site/` and the Pages Function in `functions/[[path]].js`.
-- **Cloudflare Workers Cron Triggers** run `cloudflare/worker/scheduled.js` every five minutes during Cloudflare's scheduled window.
+- **Cloudflare Durable Objects alarms** run the updater every five minutes with a lightweight Cron Trigger only bootstrapping the singleton Durable Object scheduler.
 - **Workers KV** stores the latest rendered `index.html`, source payload, and update status so the page can be refreshed without committing generated HTML or running CI.
 - The Pages Function serves the KV-backed `index.html` for `/` and `/index.html`, then lets Cloudflare Pages serve CSS, JavaScript, and JSON assets normally.
 
-Deployments call the freshly deployed Worker after both the Pages Function and scheduled Worker are deployed, forcing it to fetch the latest API payload and rewrite Workers KV so renderer or mapping changes go live even when there are no match updates. Scheduled refreshes only rewrite the cached page when the API reports a live match, or when an unfinished match is inside its scheduled three-hour kickoff window. A manual `POST /refresh` endpoint on the Worker can force the same refresh.
+Deployments call the freshly deployed Worker after both the Pages Function and updater Worker are deployed, forcing the Durable Object coordinator to fetch the latest API payload and rewrite Workers KV so renderer or mapping changes go live even when there are no match updates. Durable Object alarm refreshes only rewrite the cached page when the API reports a live match, or when an unfinished match is inside its scheduled three-hour kickoff window. A manual `POST /refresh` endpoint on the Worker can force the same refresh through the Durable Object coordinator.
 
 ## Repository structure
 
@@ -30,8 +30,8 @@ Deployments call the freshly deployed Worker after both the Pages Function and s
 cloudflare/lib/people-map.js          Sweepstake mapping exported for Cloudflare Workers
 cloudflare/lib/worldcup-renderer.js   Worker-safe API client, update-window logic, and HTML renderer
 wrangler.toml                         Cloudflare Pages config and KV binding placeholder
-cloudflare/worker/scheduled.js        Scheduled Worker and manual refresh endpoints
-cloudflare/worker/wrangler.toml       Worker config, cron trigger, and KV binding placeholder
+cloudflare/worker/scheduled.js        Worker endpoints plus Durable Object scheduler/alarm coordinator
+cloudflare/worker/wrangler.toml       Worker config, cron bootstrap, Durable Object, and KV bindings
 data/people_teams.json                Source sweepstake team-to-person mapping
 functions/[[path]].js                 Cloudflare Pages Function that serves the latest KV HTML
 scripts/build-site.js                 Node static HTML build using the shared Cloudflare renderer
@@ -77,7 +77,7 @@ The bootstrap helper creates a Pages project and prints the production and previ
 
 Use the same production namespace ID for both configs so the scheduled Worker and Pages Function share the rendered page.
 
-### 3. Deploy Pages and the scheduled Worker
+### 3. Deploy Pages and the updater Worker
 
 Pushes to `main` deploy automatically through `.github/workflows/deploy-cloudflare.yml`. Cloudflare Pages reads its Wrangler configuration from the repository root `wrangler.toml`; Pages does not support passing a custom config path to `wrangler pages deploy`. Configure these GitHub Actions repository secrets before relying on the workflow:
 
@@ -99,11 +99,11 @@ npm run cf:pages:deploy
 npm run cf:worker:deploy
 ```
 
-Production deploys use `npm run build:strict`, so the deploy fails rather than publishing an empty static fallback if the World Cup API is unavailable. The production workflow then sends an authenticated `POST /refresh` request to the deployed Worker after the Cloudflare Pages and scheduled Worker deploys complete. This makes every deployment produce an explicit Worker invocation in the logs and refresh the page render even if the scheduled updater would otherwise skip work because no matches are live or inside the update window. Local `npm run build` still supports the cached/empty fallback for styling work.
+Production deploys use `npm run build:strict`, so the deploy fails rather than publishing an empty static fallback if the World Cup API is unavailable. The production workflow then sends an authenticated `POST /refresh` request to the deployed Worker after the Cloudflare Pages and updater Worker deploys complete. The Worker forwards that request to the Durable Object coordinator so deployment refresh CPU is spent in the Durable Object rather than the front Worker invocation. This makes every deployment produce an explicit Worker invocation in the logs and refresh the page render even if the scheduled updater would otherwise skip work because no matches are live or inside the update window. Local `npm run build` still supports the cached/empty fallback for styling work.
 
 ### 4. Optional: protect manual refreshes
 
-The cron trigger does not need a token. Manual `POST /refresh` calls are disabled unless you set an `UPDATE_TOKEN` secret on the Worker:
+The cron bootstrap and Durable Object alarm do not need a token. Manual `POST /refresh` calls and scheduler management calls are disabled unless you set an `UPDATE_TOKEN` secret on the Worker:
 
 ```bash
 npx wrangler secret put UPDATE_TOKEN --config cloudflare/worker/wrangler.toml
@@ -117,17 +117,31 @@ curl -X POST \
   https://worldcup-sweepstake-updater.<your-workers-subdomain>.workers.dev/refresh
 ```
 
-Without `UPDATE_TOKEN`, `POST /refresh` returns `503` so the refresh endpoint is not accidentally left open. You can inspect the latest public, non-sensitive status with:
+Without `UPDATE_TOKEN`, `POST /refresh`, `POST /scheduler/start`, and `POST /scheduler/stop` return `503` so refresh and scheduler management endpoints are not accidentally left open. You can inspect the latest public, non-sensitive status with:
 
 ```bash
 curl https://worldcup-sweepstake-updater.<your-workers-subdomain>.workers.dev/health
+```
+
+You can also inspect only the Durable Object scheduler state:
+
+```bash
+curl https://worldcup-sweepstake-updater.<your-workers-subdomain>.workers.dev/scheduler/status
+```
+
+If the alarm ever needs to be re-seeded manually, call the protected scheduler start endpoint:
+
+```bash
+curl -X POST \
+  -H "Authorization: Bearer $UPDATE_TOKEN" \
+  https://worldcup-sweepstake-updater.<your-workers-subdomain>.workers.dev/scheduler/start
 ```
 
 ### Security notes
 
 - Keep `UPDATE_TOKEN` in Cloudflare Worker Secrets, not in `wrangler.toml` or source control. Local secret files such as `.dev.vars` and `.env` are ignored by Git.
 - The Pages Function and static fallback include baseline browser security headers, including CSP, `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, and `Permissions-Policy`.
-- If the updater Worker does not need a public manual refresh URL, consider setting `workers_dev = false` and using only the cron trigger, or protect any custom/manual route with Cloudflare Access.
+- If the updater Worker does not need public manual refresh or scheduler management URLs, consider setting `workers_dev = false`, or protect any custom/manual route with Cloudflare Access.
 
 ## Changing the sweepstake mapping
 
@@ -162,6 +176,6 @@ Current mapping transcribed from the image:
 
 ## API refresh notes
 
-Cloudflare runs the Worker cron every 5 minutes using `3-59/5 * * * *`. Scheduled runs only render and store a new page when the API reports a live match, or when an unfinished match is within its scheduled 3-hour kickoff window. Manual Worker refreshes always render and store a new page.
+Cloudflare runs a lightweight Worker cron every 5 minutes using `3-59/5 * * * *` to bootstrap the singleton Durable Object if its alarm is missing. The Durable Object alarm performs the actual scheduled refresh every 5 minutes, avoiding the tight CPU budget of the front Worker invocation. Scheduled runs only render and store a new page when the API reports a live match, or when an unfinished match is within its scheduled 3-hour kickoff window. Manual Worker refreshes are forwarded to the Durable Object and always render and store a new page.
 
 Deployments are the other forced-render path: `npm run build:strict` writes `site/index.html`, `site/payload.json`, and `site/last-update.json`, then the GitHub Actions workflow and `npm run cf:deploy` publish those files into the shared Workers KV namespace.

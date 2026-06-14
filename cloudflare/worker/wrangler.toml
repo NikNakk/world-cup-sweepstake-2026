@@ -13,7 +13,16 @@ invocation_logs = true
 persist = true
 
 [triggers]
+# Lightweight safety bootstrap only. The heavy updater runs inside the Durable Object alarm.
 crons = ["3-59/5 * * * *"]
+
+[[durable_objects.bindings]]
+name = "UPDATER_COORDINATOR"
+class_name = "UpdaterCoordinator"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["UpdaterCoordinator"]
 
 [[kv_namespaces]]
 binding = "WORLDCUP_SITE"
