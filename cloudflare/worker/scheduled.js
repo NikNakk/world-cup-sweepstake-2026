@@ -9,6 +9,7 @@ const JSON_HEADERS = {
 
 const SCHEDULER_OBJECT_NAME = 'worldcup-sweepstake-updater';
 const SCHEDULER_INTERVAL_MS = 5 * 60 * 1000;
+const BOOTSTRAP_STALE_AFTER_MS = SCHEDULER_INTERVAL_MS * 2;
 const INTERNAL_SCHEDULER_URL = 'https://scheduler.internal/';
 
 function jsonResponse(data, init = {}) {
@@ -83,14 +84,19 @@ export class UpdaterCoordinator {
       return jsonResponse(status);
     }
 
-    if (url.pathname === '/start' || url.pathname === '/bootstrap') {
-      const status = await this.scheduleNext({ onlyIfMissing: url.pathname === '/bootstrap' });
+    if (url.pathname === '/start') {
+      const status = await this.scheduleNext();
+      return jsonResponse(status);
+    }
+
+    if (url.pathname === '/bootstrap') {
+      const status = await this.bootstrap();
       return jsonResponse(status);
     }
 
     if (url.pathname === '/stop') {
       await this.state.storage.deleteAlarm();
-      await this.state.storage.put('scheduler', { enabled: false, stoppedAt: new Date().toISOString() });
+      await this.putScheduler({ enabled: false, stoppedAt: new Date().toISOString() });
       const status = await this.schedulerStatus();
       return jsonResponse({ ...status, stopped: true });
     }
@@ -110,9 +116,34 @@ export class UpdaterCoordinator {
     }
   }
 
+  async bootstrap() {
+    await this.putScheduler({ lastBootstrapAt: new Date().toISOString() });
+    const schedulerStatus = await this.scheduleNext({ onlyIfMissing: true });
+    if (!this.shouldBootstrapRun(schedulerStatus)) {
+      return { ...schedulerStatus, bootstrappedRun: false };
+    }
+
+    const runStatus = await this.runUpdate({ trigger: 'bootstrap' });
+    return {
+      ...(await this.schedulerStatus()),
+      bootstrappedRun: true,
+      run: runStatus,
+    };
+  }
+
+  shouldBootstrapRun(status) {
+    const lastRunAt = status.lastRun?.finishedAt ?? status.lastRun?.failedAt ?? status.lastRun?.startedAt;
+    if (!lastRunAt) return true;
+
+    const lastRunTime = Date.parse(lastRunAt);
+    if (Number.isNaN(lastRunTime)) return true;
+
+    return Date.now() - lastRunTime > BOOTSTRAP_STALE_AFTER_MS;
+  }
+
   async runUpdate({ force = false, trigger = 'manual' } = {}) {
     const startedAt = new Date().toISOString();
-    await this.state.storage.put('scheduler', { enabled: true, lastStartedAt: startedAt });
+    await this.putScheduler({ enabled: true, lastStartedAt: startedAt });
 
     try {
       const refreshStatus = await refreshSite(this.env.WORLDCUP_SITE, PEOPLE_MAP, { force });
@@ -147,8 +178,13 @@ export class UpdaterCoordinator {
 
     const nextAlarm = nextAlarmTime();
     await this.state.storage.setAlarm(nextAlarm);
-    await this.state.storage.put('scheduler', { enabled: true, nextAlarmAt: new Date(nextAlarm).toISOString() });
+    await this.putScheduler({ enabled: true, nextAlarmAt: new Date(nextAlarm).toISOString() });
     return this.schedulerStatus();
+  }
+
+  async putScheduler(patch) {
+    const scheduler = (await this.state.storage.get('scheduler')) ?? {};
+    await this.state.storage.put('scheduler', { ...scheduler, ...patch });
   }
 
   async schedulerStatus() {
