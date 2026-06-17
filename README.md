@@ -2,14 +2,11 @@
 
 This project builds a static Cloudflare Pages site showing World Cup 2026 fixtures, results, group tables and knockout rounds, with each team labelled with the person from the sweepstake photo.
 
-It uses the free open-source `worldcup26.ir` API from [rezarahiminia/worldcup2026](https://github.com/rezarahiminia/worldcup2026). A full refresh fetches:
+It uses the football-data.org World Cup matches endpoint. A full refresh makes one request to:
 
-1. `https://worldcup26.ir/get/games`
-2. `https://worldcup26.ir/get/groups`
-3. `https://worldcup26.ir/get/teams`
-4. `https://worldcup26.ir/get/stadiums`
+1. `https://api.football-data.org/v4/competitions/WC/matches`
 
-No API key is required for read access.
+Set `FOOTBALL_DATA_API_KEY` in local environments, GitHub Actions, the Cloudflare Pages project, and the updater Worker. The renderer sends that value as the football-data.org `X-Auth-Token` request header. The free football-data.org plan is limited to 10 requests per minute, so the app uses a single matches request per refresh and surfaces `429` responses with the server retry hint instead of retry-looping.
 
 ## Cloudflare deployment model
 
@@ -85,6 +82,7 @@ Pushes to `main` deploy automatically through `.github/workflows/deploy-cloudfla
 - `CLOUDFLARE_ACCOUNT_ID` - the Cloudflare account ID that owns the Pages project, Worker, and KV namespace.
 - `WORKER_REFRESH_TOKEN` - a GitHub Actions secret whose value matches the Cloudflare Worker `UPDATE_TOKEN` secret.
 - `WORKER_REFRESH_URL` - a GitHub Actions repository variable containing the Worker origin, for example `https://worldcup-sweepstake-updater.<your-workers-subdomain>.workers.dev`.
+- `FOOTBALL_DATA_API_KEY` - a GitHub Actions secret containing the football-data.org API token used by `npm run build:strict`.
 
 You can also deploy manually from your machine:
 
@@ -99,7 +97,7 @@ npm run cf:pages:deploy
 npm run cf:worker:deploy
 ```
 
-Production deploys use `npm run build:strict`, so the deploy fails rather than publishing an empty static fallback if the World Cup API is unavailable. The production workflow then sends an authenticated `POST /refresh` request to the deployed Worker after the Cloudflare Pages and updater Worker deploys complete. The Worker forwards that request to the Durable Object coordinator so deployment refresh CPU is spent in the Durable Object rather than the front Worker invocation. This makes every deployment produce an explicit Worker invocation in the logs and refresh the page render even if the scheduled updater would otherwise skip work because no matches are live or inside the update window. Local `npm run build` still supports the cached/empty fallback for styling work.
+Production deploys use `npm run build:strict`, so the deploy fails rather than publishing an empty static fallback if the World Cup API is unavailable or `FOOTBALL_DATA_API_KEY` is missing. The production workflow then sends an authenticated `POST /refresh` request to the deployed Worker after the Cloudflare Pages and updater Worker deploys complete. The Worker forwards that request to the Durable Object coordinator so deployment refresh CPU is spent in the Durable Object rather than the front Worker invocation. This makes every deployment produce an explicit Worker invocation in the logs and refresh the page render even if the scheduled updater would otherwise skip work because no matches are live or inside the update window. Local `npm run build` still supports the cached/empty fallback for styling work.
 
 ### 4. Optional: protect manual refreshes
 
@@ -139,7 +137,7 @@ curl -X POST \
 
 ### Security notes
 
-- Keep `UPDATE_TOKEN` in Cloudflare Worker Secrets, not in `wrangler.toml` or source control. Local secret files such as `.dev.vars` and `.env` are ignored by Git.
+- Keep `UPDATE_TOKEN` and `FOOTBALL_DATA_API_KEY` in Cloudflare/GitHub secrets, not in `wrangler.toml` or source control. Local secret files such as `.dev.vars` and `.env` are ignored by Git.
 - The Pages Function and static fallback include baseline browser security headers, including CSP, `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, and `Permissions-Policy`.
 - If the updater Worker does not need public manual refresh or scheduler management URLs, consider setting `workers_dev = false`, or protect any custom/manual route with Cloudflare Access.
 

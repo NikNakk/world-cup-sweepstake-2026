@@ -19,7 +19,7 @@ function emptyPayload() {
     standings: [],
     rounds: [],
     generatedAt: new Date().toISOString(),
-    source: 'worldcup26.ir unavailable / no cache',
+    source: 'football-data.org unavailable / no cache',
   };
 }
 
@@ -29,7 +29,7 @@ function normalizeCachedPayload(data) {
     standings: data.standings ?? [],
     rounds: data.rounds ?? [],
     generatedAt: data.generatedAt ?? data.generated_at ?? new Date().toISOString(),
-    source: data.source === 'worldcup26.ir' ? 'cached-worldcup26.ir' : (data.source ?? 'cached-worldcup26.ir'),
+    source: data.source === 'football-data.org' ? 'cached-football-data.org' : (data.source ?? 'cached-football-data.org'),
   };
 }
 
@@ -45,7 +45,7 @@ async function loadCachedPayload() {
 
 async function getPayload({ allowCache }) {
   try {
-    const payload = await fetchApiPayload();
+    const payload = await fetchApiPayload({ apiKey: process.env.FOOTBALL_DATA_API_KEY });
     await cachePayload(payload);
     return payload;
   } catch (error) {
@@ -56,7 +56,7 @@ async function getPayload({ allowCache }) {
     try {
       return await loadCachedPayload();
     } catch (_cacheError) {
-      console.warn(`worldcup26.ir fetch failed and no cache was available: ${error.message}`);
+      console.warn(`football-data.org fetch failed and no cache was available: ${error.message}`);
       return emptyPayload();
     }
   }

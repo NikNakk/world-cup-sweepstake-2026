@@ -146,7 +146,7 @@ export class UpdaterCoordinator {
     await this.putScheduler({ enabled: true, lastStartedAt: startedAt });
 
     try {
-      const refreshStatus = await refreshSite(this.env.WORLDCUP_SITE, PEOPLE_MAP, { force });
+      const refreshStatus = await refreshSite(this.env.WORLDCUP_SITE, PEOPLE_MAP, { force, apiKey: this.env.FOOTBALL_DATA_API_KEY });
       const status = {
         ...refreshStatus,
         trigger,
