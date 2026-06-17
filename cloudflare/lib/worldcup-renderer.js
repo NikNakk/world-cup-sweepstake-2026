@@ -1,4 +1,4 @@
-const BASE_URL = 'https://worldcup26.ir';
+const FOOTBALL_DATA_MATCHES_URL = 'https://api.football-data.org/v4/competitions/WC/matches';
 const LIVE_STATUSES = new Set(['1H', 'HT', '2H', 'ET', 'P', 'BT', 'LIVE']);
 const FINISHED_STATUSES = new Set(['FT', 'AET', 'PEN']);
 const MATCH_UPDATE_WINDOW_MS = 3 * 60 * 60 * 1000;
@@ -27,34 +27,20 @@ const STADIUM_TIMEZONES = {
   '16': 'America/Los_Angeles',
 };
 
-const TEAM_ALIASES = {
-  'Democratic Republic of the Congo': 'DR Congo',
-};
-
-const TEAM_DISPLAY_NAMES = {
-  'Democratic Republic of the Congo': 'DR Congo',
-};
-
-
-const BROADCASTER_TEAM_ALIASES = {
-  Curacao: 'Curaçao',
-  'DR Congo': 'Democratic Republic of the Congo',
-};
-
 const GROUP_STAGE_BROADCASTERS = [
   ['Mexico', 'South Africa', 'ITV1'],
-  ['South Korea', 'Czech Republic', 'ITV1'],
-  ['Canada', 'Bosnia and Herzegovina', 'BBC One'],
+  ['South Korea', 'Czechia', 'ITV1'],
+  ['Canada', 'Bosnia-Herzegovina', 'BBC One'],
   ['United States', 'Paraguay', 'BBC One'],
   ['Qatar', 'Switzerland', 'ITV1'],
   ['Brazil', 'Morocco', 'BBC One'],
   ['Haiti', 'Scotland', 'BBC One'],
   ['Australia', 'Turkey', 'ITV1'],
-  ['Germany', 'Curacao', 'ITV1'],
+  ['Germany', 'Curaçao', 'ITV1'],
   ['Netherlands', 'Japan', 'ITV1'],
   ['Ivory Coast', 'Ecuador', 'BBC One'],
   ['Sweden', 'Tunisia', 'ITV1'],
-  ['Spain', 'Cape Verde', 'ITV1'],
+  ['Spain', 'Cape Verde Islands', 'ITV1'],
   ['Belgium', 'Egypt', 'BBC One'],
   ['Saudi Arabia', 'Uruguay', 'ITV1'],
   ['Iran', 'New Zealand', 'BBC One'],
@@ -62,12 +48,12 @@ const GROUP_STAGE_BROADCASTERS = [
   ['Iraq', 'Norway', 'BBC One'],
   ['Argentina', 'Algeria', 'ITV1'],
   ['Austria', 'Jordan', 'BBC One'],
-  ['Portugal', 'DR Congo', 'BBC One'],
+  ['Portugal', 'Congo DR', 'BBC One'],
   ['England', 'Croatia', 'ITV1'],
   ['Ghana', 'Panama', 'ITV1'],
   ['Uzbekistan', 'Colombia', 'BBC One'],
-  ['Czech Republic', 'South Africa', 'BBC One'],
-  ['Switzerland', 'Bosnia and Herzegovina', 'ITV1'],
+  ['Czechia', 'South Africa', 'BBC One'],
+  ['Switzerland', 'Bosnia-Herzegovina', 'ITV1'],
   ['Canada', 'Qatar', 'ITV1'],
   ['Mexico', 'South Korea', 'BBC Two'],
   ['United States', 'Australia', 'BBC One'],
@@ -76,11 +62,11 @@ const GROUP_STAGE_BROADCASTERS = [
   ['Turkey', 'Paraguay', 'ITV1'],
   ['Netherlands', 'Sweden', 'BBC One'],
   ['Germany', 'Ivory Coast', 'ITV1'],
-  ['Ecuador', 'Curacao', 'BBC One'],
+  ['Ecuador', 'Curaçao', 'BBC One'],
   ['Tunisia', 'Japan', 'BBC One'],
   ['Spain', 'Saudi Arabia', 'BBC One'],
   ['Belgium', 'Iran', 'ITV1'],
-  ['Cape Verde', 'Uruguay', 'BBC One'],
+  ['Cape Verde Islands', 'Uruguay', 'BBC One'],
   ['New Zealand', 'Egypt', 'ITV1'],
   ['Argentina', 'Austria', 'BBC One'],
   ['France', 'Iraq', 'BBC One'],
@@ -89,27 +75,27 @@ const GROUP_STAGE_BROADCASTERS = [
   ['Portugal', 'Uzbekistan', 'ITV1'],
   ['England', 'Ghana', 'BBC One'],
   ['Croatia', 'Panama', 'BBC One'],
-  ['Colombia', 'DR Congo', 'ITV1'],
+  ['Colombia', 'Congo DR', 'ITV1'],
   ['Canada', 'Switzerland', 'ITV1'],
   ['Scotland', 'Brazil', 'BBC One'],
-  ['Mexico', 'Czech Republic', 'BBC One'],
+  ['Mexico', 'Czechia', 'BBC One'],
   ['Germany', 'Ecuador', 'BBC One'],
   ['Japan', 'Sweden', 'BBC One'],
   ['United States', 'Turkey', 'ITV1'],
   ['France', 'Norway', 'ITV1'],
   ['Colombia', 'Portugal', 'BBC One'],
-  ['Cape Verde', 'Saudi Arabia', 'ITV1'],
+  ['Cape Verde Islands', 'Saudi Arabia', 'ITV1'],
   ['Algeria', 'Austria', 'BBC One'],
   ['Egypt', 'Iran', 'BBC One'],
   ['England', 'Panama', 'ITV1'],
-  ['Bosnia and Herzegovina', 'Qatar', 'ITV1'],
+  ['Bosnia-Herzegovina', 'Qatar', 'ITV1'],
   ['Morocco', 'Haiti', 'BBC One'],
   ['South Africa', 'South Korea', 'BBC One'],
-  ['Curacao', 'Ivory Coast', 'BBC One'],
+  ['Curaçao', 'Ivory Coast', 'BBC One'],
   ['Netherlands', 'Tunisia', 'BBC One'],
   ['Paraguay', 'Australia', 'ITV1'],
   ['Senegal', 'Iraq', 'ITV1'],
-  ['DR Congo', 'Uzbekistan', 'BBC One'],
+  ['Congo DR', 'Uzbekistan', 'BBC One'],
   ['Uruguay', 'Spain', 'ITV1'],
   ['Argentina', 'Jordan', 'BBC One'],
   ['New Zealand', 'Belgium', 'BBC One'],
@@ -148,21 +134,39 @@ function byId(items) {
   );
 }
 
-async function apiGet(endpoint, responseKey) {
-  const response = await fetch(`${BASE_URL}/${endpoint.replace(/^\/+/, '')}`, {
-    headers: { Accept: 'application/json' },
+function footballDataApiKey(options = {}) {
+  return options.apiKey ?? globalThis?.FOOTBALL_DATA_API_KEY ?? '';
+}
+
+async function apiGet(_endpoint = '', _responseKey = '', options = {}) {
+  const apiKey = footballDataApiKey(options);
+  if (!apiKey) {
+    throw new Error('football-data.org API key is required. Set FOOTBALL_DATA_API_KEY.');
+  }
+
+  const response = await fetch(FOOTBALL_DATA_MATCHES_URL, {
+    headers: {
+      Accept: 'application/json',
+      'X-Auth-Token': apiKey,
+    },
   });
+
+  if (response.status === 429) {
+    const retryAfter = response.headers.get('Retry-After') ?? response.headers.get('X-RequestCounter-Reset');
+    const suffix = retryAfter ? ` Retry after ${retryAfter} seconds.` : '';
+    throw new Error(`football-data.org rate limit exceeded.${suffix}`);
+  }
+
   if (!response.ok) {
-    throw new Error(`worldcup26.ir ${endpoint} returned HTTP ${response.status}`);
+    throw new Error(`football-data.org matches returned HTTP ${response.status}`);
   }
-  let data = await response.json();
-  if (data && !Array.isArray(data) && typeof data === 'object') {
-    data = data[responseKey] ?? [];
+
+  const data = await response.json();
+  const matches = data?.matches ?? [];
+  if (!Array.isArray(matches)) {
+    throw new Error('football-data.org returned an unexpected matches response');
   }
-  if (!Array.isArray(data)) {
-    throw new Error(`worldcup26.ir returned an unexpected response for ${endpoint}`);
-  }
-  return data;
+  return matches;
 }
 
 function parseWorldCupDate(value) {
@@ -204,17 +208,15 @@ function zonedTimeToUtc(dateTime, timeZone) {
 }
 
 function gameKickoffUtc(game) {
-  const zone = STADIUM_TIMEZONES[String(game?.stadium_id)] ?? 'UTC';
-  return zonedTimeToUtc(game?.local_date, zone);
+  return game?.utcDate ? new Date(game.utcDate) : null;
 }
 
 function isFinishedGame(game) {
-  return String(game?.finished).toUpperCase() === 'TRUE';
+  return String(game?.status).toUpperCase() === 'FINISHED';
 }
 
 function isLiveGame(game) {
-  const elapsed = String(game?.time_elapsed ?? '').toLowerCase();
-  return !isFinishedGame(game) && !['notstarted', 'not_started', '0', ''].includes(elapsed);
+  return ['LIVE', 'IN_PLAY', 'PAUSED'].includes(String(game?.status ?? '').toUpperCase());
 }
 
 function shouldUpdateForGames(games, now = new Date()) {
@@ -241,8 +243,8 @@ function previousLiveMatchesFinished(games, previousPayload) {
     .filter((game) => liveFixtureIds.has(String(game?.id ?? '')) && isFinishedGame(game))
     .map((game) => ({
       id: asInt(game?.id),
-      home: game?.home_team_name_en ?? game?.home_team_label,
-      away: game?.away_team_name_en ?? game?.away_team_label,
+      home: game?.homeTeam?.name,
+      away: game?.awayTeam?.name,
     }));
 }
 
@@ -271,112 +273,126 @@ function summarizeGames(games, now = new Date()) {
 }
 
 function teamPayload(team, fallbackName = null) {
-  const name = team?.name_en ?? fallbackName;
-  return name ? { name, logo: team?.flag } : null;
+  const name = team?.name ?? team?.shortName ?? fallbackName;
+  return name ? { name, logo: team?.crest } : null;
 }
 
-function matchStatus(game) {
-  if (isFinishedGame(game)) return { short: 'FT', long: 'Full Time' };
-  const elapsed = String(game?.time_elapsed ?? '').toLowerCase();
-  if (['notstarted', 'not_started', '0', ''].includes(elapsed)) {
-    return { short: 'NS', long: 'Not Started' };
+function matchStatus(match) {
+  const status = String(match?.status ?? '').toUpperCase();
+  if (status === 'FINISHED') return { short: 'FT', long: 'Full Time' };
+  if (status === 'PAUSED') return { short: 'HT', long: 'Half Time' };
+  if (status === 'IN_PLAY' || status === 'LIVE') return { short: 'LIVE', long: 'Live' };
+  if (status === 'POSTPONED') return { short: 'PST', long: 'Postponed' };
+  if (status === 'SUSPENDED') return { short: 'SUSP', long: 'Suspended' };
+  if (status === 'CANCELLED') return { short: 'CANC', long: 'Cancelled' };
+  return { short: 'NS', long: 'Not Started' };
+}
+
+function roundName(match) {
+  const stage = String(match?.stage ?? '').toUpperCase();
+  if (stage === 'GROUP_STAGE') {
+    const group = String(match?.group ?? '').replace(/^GROUP_?/i, '').replaceAll('_', ' ');
+    const suffix = match?.matchday ? ` - Matchday ${match.matchday}` : '';
+    return `Group ${group}${suffix}`.trim();
   }
-  return { short: 'LIVE', long: `${game?.time_elapsed} elapsed` };
+  const names = {
+    LAST_32: 'Round of 32',
+    ROUND_OF_32: 'Round of 32',
+    LAST_16: 'Round of 16',
+    ROUND_OF_16: 'Round of 16',
+    QUARTER_FINALS: 'Quarter-finals',
+    SEMI_FINALS: 'Semi-finals',
+    THIRD_PLACE: '3rd Place',
+    FINAL: 'Final',
+  };
+  return names[stage] ?? String(match?.group ?? stage.replaceAll('_', ' ') ?? 'Other');
 }
 
-function roundName(game) {
-  const matchType = String(game?.type ?? '').toLowerCase();
-  if (matchType === 'group') {
-    const suffix = game?.matchday ? ` - Matchday ${game.matchday}` : '';
-    return `Group ${game?.group ?? ''}${suffix}`.trim();
+function normalizeFixtures(matches) {
+  return matches.map((match) => ({
+    fixture: {
+      id: asInt(match?.id),
+      date: match?.utcDate,
+      status: matchStatus(match),
+      venue: {
+        name: match?.venue,
+        city: '',
+      },
+    },
+    league: { round: roundName(match) },
+    teams: {
+      home: teamPayload(match?.homeTeam),
+      away: teamPayload(match?.awayTeam),
+    },
+    goals: {
+      home: asInt(match?.score?.fullTime?.home ?? match?.score?.regularTime?.home, null),
+      away: asInt(match?.score?.fullTime?.away ?? match?.score?.regularTime?.away, null),
+    },
+  }));
+}
+
+function emptyStanding(team, group) {
+  return {
+    rank: 0,
+    team: teamPayload(team),
+    group,
+    points: 0,
+    goalsDiff: 0,
+    all: { played: 0, win: 0, draw: 0, lose: 0, goals: { for: 0, against: 0 } },
+  };
+}
+
+function normalizeStandings(matches) {
+  const groups = new Map();
+  for (const match of matches) {
+    if (String(match?.stage ?? '').toUpperCase() !== 'GROUP_STAGE') continue;
+    const groupName = `Group ${String(match?.group ?? '').replace(/^GROUP_?/i, '').replaceAll('_', ' ')}`.trim();
+    if (!groups.has(groupName)) groups.set(groupName, new Map());
+    const table = groups.get(groupName);
+    for (const team of [match?.homeTeam, match?.awayTeam]) {
+      if (team?.id && !table.has(team.id)) table.set(team.id, emptyStanding(team, groupName));
+    }
+    if (String(match?.status ?? '').toUpperCase() !== 'FINISHED') continue;
+    const home = table.get(match?.homeTeam?.id);
+    const away = table.get(match?.awayTeam?.id);
+    const hg = asInt(match?.score?.fullTime?.home ?? match?.score?.regularTime?.home);
+    const ag = asInt(match?.score?.fullTime?.away ?? match?.score?.regularTime?.away);
+    home.all.played += 1; away.all.played += 1;
+    home.all.goals.for += hg; home.all.goals.against += ag;
+    away.all.goals.for += ag; away.all.goals.against += hg;
+    if (hg > ag) { home.all.win += 1; away.all.lose += 1; home.points += 3; }
+    else if (hg < ag) { away.all.win += 1; home.all.lose += 1; away.points += 3; }
+    else { home.all.draw += 1; away.all.draw += 1; home.points += 1; away.points += 1; }
   }
-  return ROUND_NAMES[matchType] ?? String(game?.group ?? matchType ?? 'Other');
-}
-
-function normalizeFixtures(games, teams, stadiums) {
-  const teamsById = byId(teams);
-  const stadiumsById = byId(stadiums);
-  return games.map((game) => {
-    const stadium = stadiumsById[String(game?.stadium_id)] ?? {};
-    return {
-      fixture: {
-        id: asInt(game?.id),
-        date: gameKickoffUtc(game)?.toISOString() ?? parseWorldCupDate(game?.local_date),
-        status: matchStatus(game),
-        venue: {
-          name: stadium.fifa_name ?? stadium.name_en,
-          city: stadium.city_en,
-        },
-      },
-      league: { round: roundName(game) },
-      teams: {
-        home: teamPayload(teamsById[String(game?.home_team_id)], game?.home_team_name_en ?? game?.home_team_label),
-        away: teamPayload(teamsById[String(game?.away_team_id)], game?.away_team_name_en ?? game?.away_team_label),
-      },
-      goals: {
-        home: asInt(game?.home_score),
-        away: asInt(game?.away_score),
-      },
-    };
+  const standings = [...groups.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([, table]) => {
+    return [...table.values()].map((row) => ({ ...row, goalsDiff: row.all.goals.for - row.all.goals.against }))
+      .sort((a, b) => b.points - a.points || b.goalsDiff - a.goalsDiff || b.all.goals.for - a.all.goals.for || a.team.name.localeCompare(b.team.name))
+      .map((row, index) => ({ ...row, rank: index + 1 }));
   });
-}
-
-function normalizeStandings(groups, teams) {
-  const teamsById = byId(teams);
-  const standings = groups.map((group) => {
-    const groupName = group?.name ?? group?.group ?? '';
-    return (group?.teams ?? []).map((row, index) => {
-      const team = teamsById[String(row?.team_id)] ?? {};
-      const goalsFor = asInt(row?.gf);
-      const goalsAgainst = asInt(row?.ga);
-      return {
-        rank: index + 1,
-        team: teamPayload(team) ?? { name: `Team ${row?.team_id}` },
-        group: `Group ${groupName}`,
-        points: asInt(row?.pts),
-        goalsDiff: asInt(row?.gd, goalsFor - goalsAgainst),
-        all: {
-          played: asInt(row?.mp),
-          win: asInt(row?.w),
-          draw: asInt(row?.d),
-          lose: asInt(row?.l),
-          goals: { for: goalsFor, against: goalsAgainst },
-        },
-      };
-    });
-  });
-  standings.sort((a, b) => String(a[0]?.group ?? '').localeCompare(String(b[0]?.group ?? '')));
   return [{ league: { standings } }];
 }
 
-async function fetchApiPayload() {
-  const [games, groups, teams, stadiums] = await Promise.all([
-    apiGet('get/games', 'games'),
-    apiGet('get/groups', 'groups'),
-    apiGet('get/teams', 'teams'),
-    apiGet('get/stadiums', 'stadiums'),
-  ]);
-  const fixtures = normalizeFixtures(games, teams, stadiums);
-  const standings = normalizeStandings(groups, teams);
+async function fetchApiPayload(options = {}) {
+  const matches = await apiGet('matches', 'matches', options);
+  const fixtures = normalizeFixtures(matches);
+  const standings = normalizeStandings(matches);
   const rounds = [...new Set(fixtures.map((fixture) => fixture.league.round).filter((round) => !round.includes('Group')))];
   return {
     fixtures,
     standings,
     rounds,
     generatedAt: new Date().toISOString(),
-    source: 'worldcup26.ir',
+    source: 'football-data.org',
   };
 }
 
 function teamOwner(teamName, peopleMap) {
   return peopleMap[teamName]
-    ?? peopleMap[TEAM_ALIASES[teamName] ?? '']
-    ?? peopleMap[teamName.replace('Côte', 'Cote')]
     ?? '—';
 }
 
 function displayTeamName(teamName) {
-  return TEAM_DISPLAY_NAMES[teamName] ?? teamName;
+  return teamName;
 }
 
 function displayTeam(team, peopleMap, showOwner = true) {
@@ -439,7 +455,7 @@ function matchClass(match) {
 
 
 function broadcasterTeamName(teamName) {
-  return BROADCASTER_TEAM_ALIASES[teamName] ?? teamName;
+  return teamName;
 }
 
 function broadcasterKey(home, away) {
@@ -807,7 +823,7 @@ function renderPage(payload, peopleMap) {
   </main>
 
   <footer>
-    <p>Last generated ${escapeHtml(generated)} from ${escapeHtml(payload.source ?? 'unknown')}. Data source: worldcup26.ir. Built as static HTML and refreshed by Cloudflare Workers.</p>
+    <p>Last generated ${escapeHtml(generated)} from ${escapeHtml(payload.source ?? 'unknown')}. Data source: football-data.org. Built as static HTML and refreshed by Cloudflare Workers.</p>
   </footer>
   <script src='assets/site.js'></script>
 </body>
@@ -815,7 +831,7 @@ function renderPage(payload, peopleMap) {
 }
 
 async function refreshSite(kv, peopleMap, options = {}) {
-  const games = await apiGet('get/games', 'games');
+  const games = await apiGet('matches', 'matches', options);
   const checkedAt = new Date();
   const previousPayload = await kv.get(CACHE_KEYS.payload, 'json');
   const finishedPreviouslyLiveMatches = previousLiveMatchesFinished(games, previousPayload);
@@ -845,17 +861,12 @@ async function refreshSite(kv, peopleMap, options = {}) {
     return status;
   }
 
-  const [groups, teams, stadiums] = await Promise.all([
-    apiGet('get/groups', 'groups'),
-    apiGet('get/teams', 'teams'),
-    apiGet('get/stadiums', 'stadiums'),
-  ]);
   const payload = {
-    fixtures: normalizeFixtures(games, teams, stadiums),
-    standings: normalizeStandings(groups, teams),
+    fixtures: normalizeFixtures(games),
+    standings: normalizeStandings(games),
     rounds: [],
     generatedAt: new Date().toISOString(),
-    source: 'worldcup26.ir',
+    source: 'football-data.org',
   };
   payload.rounds = [...new Set(payload.fixtures.map((fixture) => fixture.league.round).filter((round) => !round.includes('Group')))];
   const html = renderPage(payload, peopleMap);

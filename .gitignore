@@ -6,3 +6,4 @@ node_modules/
 .env
 site/payload.json
 site/last-update.json
+.codex/config.toml

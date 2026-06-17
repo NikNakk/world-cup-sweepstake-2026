@@ -33,7 +33,7 @@ export async function onRequest(context) {
   }
 
   try {
-    const payload = await fetchApiPayload();
+    const payload = await fetchApiPayload({ apiKey: env.FOOTBALL_DATA_API_KEY });
     const html = renderPage(payload, PEOPLE_MAP);
     await Promise.all([
       env.WORLDCUP_SITE.put(CACHE_KEYS.html, html),
