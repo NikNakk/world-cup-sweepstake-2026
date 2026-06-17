@@ -8,8 +8,11 @@ const JSON_HEADERS = {
 };
 
 const SCHEDULER_OBJECT_NAME = 'worldcup-sweepstake-updater';
-const SCHEDULER_INTERVAL_MS = 5 * 60 * 1000;
-const BOOTSTRAP_STALE_AFTER_MS = SCHEDULER_INTERVAL_MS * 2;
+const ONE_MINUTE_MS = 60 * 1000;
+const LIVE_MATCH_SCHEDULER_INTERVAL_MS = ONE_MINUTE_MS;
+const MATCH_WINDOW_SCHEDULER_INTERVAL_MS = 5 * ONE_MINUTE_MS;
+const OFF_HOURS_SCHEDULER_INTERVAL_MS = 60 * ONE_MINUTE_MS;
+const DEFAULT_BOOTSTRAP_STALE_MULTIPLIER = 2;
 const INTERNAL_SCHEDULER_URL = 'https://scheduler.internal/';
 
 function jsonResponse(data, init = {}) {
@@ -58,8 +61,31 @@ async function callScheduler(env, path, init = {}) {
   return response.json();
 }
 
-function nextAlarmTime(from = Date.now()) {
-  return from + SCHEDULER_INTERVAL_MS;
+function londonClockMinutes(date = new Date()) {
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Europe/London',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).formatToParts(date);
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  const hour = Number(values.hour === '24' ? '0' : values.hour);
+  return (hour * 60) + Number(values.minute);
+}
+
+function isInsideMatchPollingWindow(date = new Date()) {
+  const minutes = londonClockMinutes(date);
+  return minutes >= (17 * 60) || minutes <= (8 * 60);
+}
+
+function schedulerIntervalMs(lastRun = null, now = new Date()) {
+  if (lastRun?.gameSummary?.live > 0) return LIVE_MATCH_SCHEDULER_INTERVAL_MS;
+  if (isInsideMatchPollingWindow(now)) return MATCH_WINDOW_SCHEDULER_INTERVAL_MS;
+  return OFF_HOURS_SCHEDULER_INTERVAL_MS;
+}
+
+function nextAlarmTime({ from = Date.now(), lastRun = null } = {}) {
+  return from + schedulerIntervalMs(lastRun, new Date(from));
 }
 
 function serializeError(error) {
@@ -124,6 +150,7 @@ export class UpdaterCoordinator {
     }
 
     const runStatus = await this.runUpdate({ trigger: 'bootstrap' });
+    await this.scheduleNext();
     return {
       ...(await this.schedulerStatus()),
       bootstrappedRun: true,
@@ -138,7 +165,8 @@ export class UpdaterCoordinator {
     const lastRunTime = Date.parse(lastRunAt);
     if (Number.isNaN(lastRunTime)) return true;
 
-    return Date.now() - lastRunTime > BOOTSTRAP_STALE_AFTER_MS;
+    const intervalMs = schedulerIntervalMs(status.lastRun);
+    return Date.now() - lastRunTime > intervalMs * DEFAULT_BOOTSTRAP_STALE_MULTIPLIER;
   }
 
   async runUpdate({ force = false, trigger = 'manual' } = {}) {
@@ -176,9 +204,15 @@ export class UpdaterCoordinator {
       return this.schedulerStatus();
     }
 
-    const nextAlarm = nextAlarmTime();
+    const lastRun = await this.state.storage.get('lastRun');
+    const intervalMs = schedulerIntervalMs(lastRun);
+    const nextAlarm = nextAlarmTime({ lastRun });
     await this.state.storage.setAlarm(nextAlarm);
-    await this.putScheduler({ enabled: true, nextAlarmAt: new Date(nextAlarm).toISOString() });
+    await this.putScheduler({
+      enabled: true,
+      intervalSeconds: intervalMs / 1000,
+      nextAlarmAt: new Date(nextAlarm).toISOString(),
+    });
     return this.schedulerStatus();
   }
 
@@ -196,7 +230,7 @@ export class UpdaterCoordinator {
 
     return {
       enabled: Boolean(alarmTime) && scheduler?.enabled !== false,
-      intervalSeconds: SCHEDULER_INTERVAL_MS / 1000,
+      intervalSeconds: schedulerIntervalMs(lastRun) / 1000,
       nextAlarmAt: alarmTime ? new Date(alarmTime).toISOString() : null,
       scheduler: scheduler ?? null,
       lastRun: lastRun ?? null,

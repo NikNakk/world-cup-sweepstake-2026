@@ -14,7 +14,7 @@ This repository is designed for Cloudflare's free tier and includes a GitHub Act
 
 - **GitHub Actions** deploys the Cloudflare Pages site and updater Worker on pushes to `main`, then calls the deployed Worker refresh endpoint so the Worker run appears in Worker logs and rewrites the shared KV cache.
 - **Cloudflare Pages** hosts the static assets in `site/` and the Pages Function in `functions/[[path]].js`.
-- **Cloudflare Durable Objects alarms** run the updater every five minutes with a lightweight Cron Trigger only bootstrapping the singleton Durable Object scheduler.
+- **Cloudflare Durable Objects alarms** run the updater on a dynamic cadence: every minute while a match is live, every five minutes between 17:00 and 08:00 Europe/London when no match is live, and hourly outside that window. A lightweight Cron Trigger only bootstraps the singleton Durable Object scheduler.
 - **Workers KV** stores the latest rendered `index.html`, source payload, and update status so the page can be refreshed without committing generated HTML or running CI.
 - The Pages Function serves the KV-backed `index.html` for `/` and `/index.html`, then lets Cloudflare Pages serve CSS, JavaScript, and JSON assets normally.
 
@@ -174,6 +174,6 @@ Current mapping transcribed from the image:
 
 ## API refresh notes
 
-Cloudflare runs a lightweight Worker cron every 5 minutes using `3-59/5 * * * *` to bootstrap the singleton Durable Object if its alarm is missing or the last Durable Object refresh is stale. The Durable Object alarm performs the actual scheduled refresh every 5 minutes, avoiding the tight CPU budget of the front Worker invocation, and the bootstrap cron now also asks the Durable Object to run when there is no recorded run or the last run is more than 10 minutes old. Scheduled runs only render and store a new page when the API reports a live match, or when an unfinished match is within its scheduled 3-hour kickoff window. Manual Worker refreshes are forwarded to the Durable Object and always render and store a new page.
+Cloudflare runs a lightweight Worker cron every 5 minutes using `3-59/5 * * * *` to bootstrap the singleton Durable Object if its alarm is missing or the last Durable Object refresh is stale. The Durable Object alarm performs the actual scheduled refresh on a dynamic cadence, avoiding the tight CPU budget of the front Worker invocation: every minute while the latest run reports a live match, every five minutes between 17:00 and 08:00 Europe/London when no match is live, and hourly outside that window. The bootstrap cron also asks the Durable Object to run when there is no recorded run or the last run is stale for the currently expected cadence. Scheduled runs only render and store a new page when the API reports a live match, or when an unfinished match is within its scheduled 3-hour kickoff window. Manual Worker refreshes are forwarded to the Durable Object and always render and store a new page.
 
 Deployments are the other forced-render path: `npm run build:strict` writes `site/index.html`, `site/payload.json`, and `site/last-update.json`, then the GitHub Actions workflow and `npm run cf:deploy` publish those files into the shared Workers KV namespace.
