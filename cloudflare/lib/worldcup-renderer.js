@@ -28,17 +28,51 @@ const STADIUM_TIMEZONES = {
 };
 
 const TEAM_ALIASES = {
+  'Bosnia-Herzegovina': 'Bosnia and Herzegovina',
+  'Cabo Verde': 'Cape Verde',
+  'Congo DR': 'Democratic Republic of the Congo',
+  'Côte d’Ivoire': 'Ivory Coast',
+  "Côte d'Ivoire": 'Ivory Coast',
+  "Cote d'Ivoire": 'Ivory Coast',
+  Curacao: 'Curaçao',
+  Czechia: 'Czech Republic',
   'Democratic Republic of the Congo': 'DR Congo',
+  'DR Congo': 'Democratic Republic of the Congo',
+  'IR Iran': 'Iran',
+  'Korea Republic': 'South Korea',
+  Türkiye: 'Turkey',
+  USA: 'United States',
+  'United States of America': 'United States',
 };
 
 const TEAM_DISPLAY_NAMES = {
+  'Congo DR': 'DR Congo',
+  'Côte d’Ivoire': 'Ivory Coast',
+  "Côte d'Ivoire": 'Ivory Coast',
+  "Cote d'Ivoire": 'Ivory Coast',
   'Democratic Republic of the Congo': 'DR Congo',
+  'Korea Republic': 'South Korea',
+  Türkiye: 'Turkey',
+  USA: 'United States',
+  'United States of America': 'United States',
 };
 
 
 const BROADCASTER_TEAM_ALIASES = {
+  'Bosnia-Herzegovina': 'Bosnia and Herzegovina',
+  'Cabo Verde': 'Cape Verde',
+  'Congo DR': 'Democratic Republic of the Congo',
   Curacao: 'Curaçao',
+  'Côte d’Ivoire': 'Ivory Coast',
+  "Côte d'Ivoire": 'Ivory Coast',
+  "Cote d'Ivoire": 'Ivory Coast',
+  Czechia: 'Czech Republic',
   'DR Congo': 'Democratic Republic of the Congo',
+  'IR Iran': 'Iran',
+  'Korea Republic': 'South Korea',
+  Türkiye: 'Turkey',
+  USA: 'United States',
+  'United States of America': 'United States',
 };
 
 const GROUP_STAGE_BROADCASTERS = [
