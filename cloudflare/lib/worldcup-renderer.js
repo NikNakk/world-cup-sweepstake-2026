@@ -506,7 +506,6 @@ function rankingValue(row) {
     asInt(row?.points),
     asInt(row?.goalsDiff),
     asInt(goals.for),
-    -asInt(goals.against),
   ];
 }
 
@@ -517,6 +516,85 @@ function compareRankingRows(a, b) {
     if (left[index] !== right[index]) return right[index] - left[index];
   }
   return String(a?.team?.name ?? '').localeCompare(String(b?.team?.name ?? ''));
+}
+
+function compareGroupTiebreakRows(a, b, tiedTeamNames, fixtures) {
+  const leftHeadToHead = headToHeadValue(a, tiedTeamNames, fixtures);
+  const rightHeadToHead = headToHeadValue(b, tiedTeamNames, fixtures);
+  const left = [
+    leftHeadToHead.points,
+    leftHeadToHead.goalsFor - leftHeadToHead.goalsAgainst,
+    leftHeadToHead.goalsFor,
+    asInt(a?.goalsDiff),
+    asInt(a?.all?.goals?.for),
+  ];
+  const right = [
+    rightHeadToHead.points,
+    rightHeadToHead.goalsFor - rightHeadToHead.goalsAgainst,
+    rightHeadToHead.goalsFor,
+    asInt(b?.goalsDiff),
+    asInt(b?.all?.goals?.for),
+  ];
+  for (let index = 0; index < left.length; index += 1) {
+    if (left[index] !== right[index]) return right[index] - left[index];
+  }
+  return String(a?.team?.name ?? '').localeCompare(String(b?.team?.name ?? ''));
+}
+
+function headToHeadValue(row, tiedTeamNames, fixtures) {
+  const teamName = row?.team?.name;
+  const stats = { points: 0, goalsFor: 0, goalsAgainst: 0 };
+  if (!teamName) return stats;
+
+  for (const fixture of fixtures) {
+    if (!FINISHED_STATUSES.has(fixture?.fixture?.status?.short)) continue;
+    const home = fixture?.teams?.home?.name;
+    const away = fixture?.teams?.away?.name;
+    if (!tiedTeamNames.has(home) || !tiedTeamNames.has(away)) continue;
+    if (home !== teamName && away !== teamName) continue;
+
+    const goalsFor = home === teamName ? asInt(fixture?.goals?.home) : asInt(fixture?.goals?.away);
+    const goalsAgainst = home === teamName ? asInt(fixture?.goals?.away) : asInt(fixture?.goals?.home);
+    stats.goalsFor += goalsFor;
+    stats.goalsAgainst += goalsAgainst;
+    if (goalsFor > goalsAgainst) stats.points += 3;
+    if (goalsFor === goalsAgainst) stats.points += 1;
+  }
+
+  return stats;
+}
+
+function sortGroupRows(rows, fixtures = []) {
+  const sortedRows = [...rows].sort((a, b) => {
+    const pointsDifference = asInt(b?.points) - asInt(a?.points);
+    if (pointsDifference) return pointsDifference;
+    return String(a?.team?.name ?? '').localeCompare(String(b?.team?.name ?? ''));
+  });
+  const orderedRows = [];
+
+  for (let index = 0; index < sortedRows.length;) {
+    const points = asInt(sortedRows[index]?.points);
+    const tiedRows = [];
+    while (index < sortedRows.length && asInt(sortedRows[index]?.points) === points) {
+      tiedRows.push(sortedRows[index]);
+      index += 1;
+    }
+
+    if (tiedRows.length > 1) {
+      const tiedTeamNames = new Set(tiedRows.map((row) => row?.team?.name).filter(Boolean));
+      tiedRows.sort((a, b) => compareGroupTiebreakRows(a, b, tiedTeamNames, fixtures));
+    }
+
+    orderedRows.push(...tiedRows);
+  }
+
+  return orderedRows.map((row, index) => ({ ...row, rank: index + 1 }));
+}
+
+function sortStandingsTables(standings, fixtures = []) {
+  return Object.fromEntries(
+    Object.entries(standings).map(([group, rows]) => [group, sortGroupRows(rows, fixtures)]),
+  );
 }
 
 function groupFixturesFinished(fixtures, group, teamGroups) {
@@ -542,7 +620,7 @@ function getEliminatedTeams(standings, fixtures, teamGroups) {
 
   for (const [group, rows] of Object.entries(standings)) {
     if (!groupFixturesFinished(fixtures, group, teamGroups)) continue;
-    const sortedRows = [...rows].sort(compareRankingRows);
+    const sortedRows = sortGroupRows(rows, fixtures);
     sortedRows.forEach((row, index) => {
       if (index >= 3 && row?.team?.name) eliminated.add(row.team.name);
     });
@@ -654,9 +732,9 @@ function renderPeople(peopleMap, eliminatedTeams = new Set()) {
 }
 
 function renderPage(payload, peopleMap) {
-  const standings = getStandingsTables(payload.standings ?? []);
-  const teamGroups = buildTeamToGroup(standings);
   const fixtures = [...(payload.fixtures ?? [])].sort((a, b) => fixtureSortKey(a).localeCompare(fixtureSortKey(b)));
+  const standings = sortStandingsTables(getStandingsTables(payload.standings ?? []), fixtures);
+  const teamGroups = buildTeamToGroup(standings);
   const finished = fixtures.filter((fixture) => FINISHED_STATUSES.has(fixture.fixture?.status?.short)).length;
   const live = fixtures.filter((fixture) => LIVE_STATUSES.has(fixture.fixture?.status?.short)).length;
   const upcoming = Math.max(fixtures.length - finished - live, 0);
