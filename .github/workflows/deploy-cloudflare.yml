@@ -27,7 +27,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24
 
       - name: Install dependencies
         run: npm install
@@ -38,7 +38,14 @@ jobs:
           git diff --exit-code -- cloudflare/lib/people-map.js
 
       - name: Build static Pages fallback
-        run: npm run build:strict
+        env:
+          FOOTBALL_DATA_API_KEY: ${{ secrets.FOOTBALL_DATA_API_KEY }}
+        run: |
+          if [ -z "${FOOTBALL_DATA_API_KEY:-}" ]; then
+            echo "Missing repository secret FOOTBALL_DATA_API_KEY." >&2
+            exit 1
+          fi
+          npm run build:strict
 
       - name: Deploy Cloudflare Pages
         uses: cloudflare/wrangler-action@v3
@@ -47,6 +54,18 @@ jobs:
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           command: pages deploy site --project-name worldcup-sweepstake
           gitHubToken: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Sync football-data.org API key to Worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          FOOTBALL_DATA_API_KEY: ${{ secrets.FOOTBALL_DATA_API_KEY }}
+        run: |
+          if [ -z "${FOOTBALL_DATA_API_KEY:-}" ]; then
+            echo "Missing repository secret FOOTBALL_DATA_API_KEY." >&2
+            exit 1
+          fi
+          printf '%s' "${FOOTBALL_DATA_API_KEY}" | npx wrangler secret put FOOTBALL_DATA_API_KEY --config cloudflare/worker/wrangler.toml
 
       - name: Deploy scheduled Worker
         uses: cloudflare/wrangler-action@v3

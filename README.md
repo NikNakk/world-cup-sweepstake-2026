@@ -82,7 +82,7 @@ Pushes to `main` deploy automatically through `.github/workflows/deploy-cloudfla
 - `CLOUDFLARE_ACCOUNT_ID` - the Cloudflare account ID that owns the Pages project, Worker, and KV namespace.
 - `WORKER_REFRESH_TOKEN` - a GitHub Actions secret whose value matches the Cloudflare Worker `UPDATE_TOKEN` secret.
 - `WORKER_REFRESH_URL` - a GitHub Actions repository variable containing the Worker origin, for example `https://worldcup-sweepstake-updater.<your-workers-subdomain>.workers.dev`.
-- `FOOTBALL_DATA_API_KEY` - a GitHub Actions secret containing the football-data.org API token used by `npm run build:strict`.
+- `FOOTBALL_DATA_API_KEY` - a GitHub Actions secret containing the football-data.org API token used by `npm run build:strict`. The workflow also syncs this value into the updater Worker as a Cloudflare Worker secret before deploying it.
 
 You can also deploy manually from your machine:
 
