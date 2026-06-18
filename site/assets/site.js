@@ -1,11 +1,12 @@
 import { PEOPLE_MAP } from './people-map.js';
 import { renderPage } from './worldcup-renderer.js';
 
-const API_STATE_URL = globalThis.WORLDCUP_API_STATE_URL ?? '/api/state';
+const DEFAULT_API_STATE_URL = '/api/state';
 const POLL_INTERVAL_MS = 60 * 1000;
 let selectedPerson = null;
 let selectedFixtureFilter = null;
 let isLoadingState = false;
+let apiStateUrlPromise = null;
 
 function showError(message) {
   const status = document.querySelector('[data-load-status]');
@@ -142,7 +143,8 @@ function initializeFilters() {
 async function loadState() {
   if (isLoadingState) return;
   isLoadingState = true;
-  const response = await fetch(API_STATE_URL, {
+  const apiStateUrl = await getApiStateUrl();
+  const response = await fetch(apiStateUrl, {
     headers: { Accept: 'application/json' },
     cache: 'no-store',
   });
@@ -159,6 +161,17 @@ async function loadState() {
   replaceDocumentWithRenderedPage(state.payload);
   initializeFilters();
   isLoadingState = false;
+}
+
+async function getApiStateUrl() {
+  apiStateUrlPromise ??= fetch('api-config.json', {
+    headers: { Accept: 'application/json' },
+    cache: 'no-store',
+  })
+    .then((response) => (response.ok ? response.json() : {}))
+    .then((config) => config.stateUrl || DEFAULT_API_STATE_URL)
+    .catch(() => DEFAULT_API_STATE_URL);
+  return apiStateUrlPromise;
 }
 
 if (typeof document !== 'undefined') {

@@ -16,6 +16,6 @@ cat <<MSG
 
 Next steps:
 1. Run: npm run cf:deploy
-2. Route /api/* on your production hostname to the $WORKER_NAME Worker, or set window.WORLDCUP_API_STATE_URL in the static shell.
+2. Route /api/* on your production hostname to the $WORKER_NAME Worker, or build with WORLDCUP_API_STATE_URL/WORKER_REFRESH_URL so site/api-config.json points at the Worker.
 3. Optional manual refresh: curl -X POST https://$WORKER_NAME.<your-subdomain>.workers.dev/refresh
 MSG

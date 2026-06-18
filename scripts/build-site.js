@@ -40,12 +40,13 @@ async function getFallbackPayload() {
   }
 }
 
-function apiStateOverrideScript() {
+function apiConfig() {
   const explicitUrl = process.env.WORLDCUP_API_STATE_URL;
   const workerUrl = process.env.WORKER_REFRESH_URL;
   const apiUrl = explicitUrl ?? (workerUrl ? `${workerUrl.replace(/\/+$/, '')}/api/state` : '');
-  if (!apiUrl) return '';
-  return `  <script>window.WORLDCUP_API_STATE_URL = ${JSON.stringify(apiUrl)};</script>\n`;
+  return {
+    stateUrl: apiUrl || '/api/state',
+  };
 }
 
 function renderShell() {
@@ -75,7 +76,7 @@ function renderShell() {
       <div class='section-heading'><h2>Loading</h2><p>The latest fixtures and standings are coming from the sweepstake API.</p></div>
     </section>
   </main>
-${apiStateOverrideScript()}  <script type='module' src='assets/site.js'></script>
+  <script type='module' src='assets/site.js'></script>
 </body>
 </html>`;
 }
@@ -85,6 +86,7 @@ async function build() {
 
   await mkdir(ASSETS_DIR, { recursive: true });
   await writeFile(join(SITE_DIR, 'index.html'), renderShell(), 'utf8');
+  await writeFile(join(SITE_DIR, 'api-config.json'), `${JSON.stringify(apiConfig(), null, 2)}\n`, 'utf8');
   await writeFile(join(SITE_DIR, 'payload.json'), `${JSON.stringify(payload, null, 2)}\n`, 'utf8');
   await writeFile(join(SITE_DIR, 'last-update.json'), `${JSON.stringify({
     updated: false,

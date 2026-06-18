@@ -92,7 +92,7 @@ npm run cf:worker:deploy
 
 Production deploys use `npm run build:strict` to publish a static shell. The production workflow then sends an authenticated `POST /refresh` request to the deployed Worker after the Cloudflare Pages and updater Worker deploys complete. The Worker forwards that request to the Durable Object coordinator so deployment refresh CPU is spent in the Durable Object rather than the front Worker invocation. This makes every deployment produce an explicit Worker invocation in the logs and refresh the SQLite-backed payload even if the scheduled updater would otherwise skip work because no matches are live or inside the update window.
 
-Route `/api/*` on the production hostname to the updater Worker so the static frontend can load `/api/state` from the same origin. If you serve the Worker from a separate hostname, set `window.WORLDCUP_API_STATE_URL` in the static shell before `assets/site.js` loads.
+Route `/api/*` on the production hostname to the updater Worker so the static frontend can load `/api/state` from the same origin. If you serve the Worker from a separate hostname, set `WORLDCUP_API_STATE_URL` or `WORKER_REFRESH_URL` during `npm run build` so `site/api-config.json` points at the Worker API.
 
 ### 4. Optional: protect manual refreshes
 
