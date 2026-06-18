@@ -2,6 +2,10 @@ import { PEOPLE_MAP } from './people-map.js';
 import { renderPage } from './worldcup-renderer.js';
 
 const API_STATE_URL = globalThis.WORLDCUP_API_STATE_URL ?? '/api/state';
+const POLL_INTERVAL_MS = 60 * 1000;
+let selectedPerson = null;
+let selectedFixtureFilter = null;
+let isLoadingState = false;
 
 function showError(message) {
   const status = document.querySelector('[data-load-status]');
@@ -30,8 +34,6 @@ function initializeFilters() {
   const fixtureFilterButtons = [...document.querySelectorAll('[data-fixture-filter]')];
   const fixtureSections = [...document.querySelectorAll('.fixture-group, .knockout-round')];
   const groupsSection = document.querySelector('#groups');
-  let selectedPerson = null;
-  let selectedFixtureFilter = null;
 
   function matchFeaturesPerson(match, person) {
     return [...match.querySelectorAll('.owner')].some((owner) => owner.textContent.trim() === person);
@@ -128,9 +130,18 @@ function initializeFilters() {
       setSelectedFixtureFilter(button.dataset.fixtureFilter);
     });
   });
+
+  fixtureFilterButtons.forEach((button) => {
+    const isSelected = button.dataset.fixtureFilter === selectedFixtureFilter;
+    button.classList.toggle('is-selected', isSelected);
+    button.setAttribute('aria-pressed', String(isSelected));
+  });
+  updateFilteredContent();
 }
 
 async function loadState() {
+  if (isLoadingState) return;
+  isLoadingState = true;
   const response = await fetch(API_STATE_URL, {
     headers: { Accept: 'application/json' },
     cache: 'no-store',
@@ -147,11 +158,19 @@ async function loadState() {
 
   replaceDocumentWithRenderedPage(state.payload);
   initializeFilters();
+  isLoadingState = false;
 }
 
 if (typeof document !== 'undefined') {
   loadState().catch((error) => {
+    isLoadingState = false;
     console.error(error);
     showError('Live sweepstake data is temporarily unavailable.');
   });
+  setInterval(() => {
+    loadState().catch((error) => {
+      isLoadingState = false;
+      console.error(error);
+    });
+  }, POLL_INTERVAL_MS);
 }

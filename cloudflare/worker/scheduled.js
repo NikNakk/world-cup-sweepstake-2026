@@ -11,8 +11,10 @@ const JSON_HEADERS = {
 };
 
 const SCHEDULER_OBJECT_NAME = 'worldcup-sweepstake-updater';
-const SCHEDULER_INTERVAL_MS = 60 * 1000;
-const BOOTSTRAP_STALE_AFTER_MS = SCHEDULER_INTERVAL_MS * 2;
+const LIVE_INTERVAL_MS = 60 * 1000;
+const MATCH_WINDOW_INTERVAL_MS = 5 * 60 * 1000;
+const QUIET_INTERVAL_MS = 60 * 60 * 1000;
+const ALARM_OVERDUE_GRACE_MS = 2 * 60 * 1000;
 const INTERNAL_SCHEDULER_URL = 'https://scheduler.internal/';
 
 function jsonResponse(data, init = {}) {
@@ -61,8 +63,39 @@ async function callScheduler(env, path, init = {}) {
   return response.json();
 }
 
-function nextAlarmTime(from = Date.now()) {
-  return from + SCHEDULER_INTERVAL_MS;
+function ukClockMinutes(date = new Date()) {
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Europe/London',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).formatToParts(date);
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return Number(values.hour) * 60 + Number(values.minute);
+}
+
+function isMatchWindow(date = new Date()) {
+  const minutes = ukClockMinutes(date);
+  return minutes >= 17 * 60 || minutes < 8 * 60;
+}
+
+function msUntilNextMatchWindow(date = new Date()) {
+  const minutes = ukClockMinutes(date);
+  if (minutes >= 17 * 60 || minutes < 8 * 60) return 0;
+  const minutesUntilWindow = (17 * 60) - minutes;
+  const seconds = date.getSeconds();
+  const milliseconds = date.getMilliseconds();
+  return (minutesUntilWindow * 60 * 1000) - (seconds * 1000) - milliseconds;
+}
+
+function refreshIntervalMs(status, from = new Date()) {
+  if ((status?.gameSummary?.live ?? 0) > 0) return LIVE_INTERVAL_MS;
+  if (isMatchWindow(from)) return MATCH_WINDOW_INTERVAL_MS;
+  return Math.min(QUIET_INTERVAL_MS, msUntilNextMatchWindow(from));
+}
+
+function nextAlarmTime(intervalMs, from = Date.now()) {
+  return from + intervalMs;
 }
 
 function serializeError(error) {
@@ -164,21 +197,24 @@ export class UpdaterCoordinator {
   }
 
   async alarm() {
+    let status;
     try {
-      await this.runUpdate({ trigger: 'alarm' });
+      status = await this.runUpdate({ trigger: 'alarm' });
     } finally {
-      await this.scheduleNext();
+      await this.scheduleNext({ intervalMs: refreshIntervalMs(status) });
     }
   }
 
   async bootstrap() {
     await this.putScheduler({ lastBootstrapAt: new Date().toISOString() });
+    const alarmBeforeBootstrap = await this.state.storage.getAlarm();
     const schedulerStatus = await this.scheduleNext({ onlyIfMissing: true });
-    if (!this.shouldBootstrapRun(schedulerStatus)) {
+    if (alarmBeforeBootstrap && !this.shouldBootstrapRun(schedulerStatus)) {
       return { ...schedulerStatus, bootstrappedRun: false };
     }
 
     const runStatus = await this.runUpdate({ trigger: 'bootstrap' });
+    await this.scheduleNext({ intervalMs: refreshIntervalMs(runStatus) });
     return {
       ...(await this.schedulerStatus()),
       bootstrappedRun: true,
@@ -187,13 +223,10 @@ export class UpdaterCoordinator {
   }
 
   shouldBootstrapRun(status) {
-    const lastRunAt = status.lastRun?.finishedAt ?? status.lastRun?.failedAt ?? status.lastRun?.startedAt;
-    if (!lastRunAt) return true;
-
-    const lastRunTime = Date.parse(lastRunAt);
-    if (Number.isNaN(lastRunTime)) return true;
-
-    return Date.now() - lastRunTime > BOOTSTRAP_STALE_AFTER_MS;
+    if (!status.nextAlarmAt) return true;
+    const nextAlarmTime = Date.parse(status.nextAlarmAt);
+    if (Number.isNaN(nextAlarmTime)) return true;
+    return Date.now() - nextAlarmTime > ALARM_OVERDUE_GRACE_MS;
   }
 
   async runUpdate({ force = false, trigger = 'manual' } = {}) {
@@ -225,15 +258,19 @@ export class UpdaterCoordinator {
     }
   }
 
-  async scheduleNext({ onlyIfMissing = false } = {}) {
+  async scheduleNext({ onlyIfMissing = false, intervalMs = MATCH_WINDOW_INTERVAL_MS } = {}) {
     const existingAlarm = await this.state.storage.getAlarm();
     if (onlyIfMissing && existingAlarm) {
       return this.schedulerStatus();
     }
 
-    const nextAlarm = nextAlarmTime();
+    const nextAlarm = nextAlarmTime(intervalMs);
     await this.state.storage.setAlarm(nextAlarm);
-    await this.putScheduler({ enabled: true, nextAlarmAt: new Date(nextAlarm).toISOString() });
+    await this.putScheduler({
+      enabled: true,
+      intervalSeconds: intervalMs / 1000,
+      nextAlarmAt: new Date(nextAlarm).toISOString(),
+    });
     return this.schedulerStatus();
   }
 
@@ -251,7 +288,7 @@ export class UpdaterCoordinator {
 
     return {
       enabled: Boolean(alarmTime) && scheduler?.enabled !== false,
-      intervalSeconds: SCHEDULER_INTERVAL_MS / 1000,
+      intervalSeconds: scheduler?.intervalSeconds ?? null,
       nextAlarmAt: alarmTime ? new Date(alarmTime).toISOString() : null,
       scheduler: scheduler ?? null,
       lastRun: lastRun ?? null,

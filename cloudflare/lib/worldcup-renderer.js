@@ -1,6 +1,7 @@
 const FOOTBALL_DATA_MATCHES_URL = 'https://api.football-data.org/v4/competitions/WC/matches';
 const LIVE_STATUSES = new Set(['1H', 'HT', '2H', 'ET', 'P', 'BT', 'LIVE']);
 const FINISHED_STATUSES = new Set(['FT', 'AET', 'PEN']);
+const STANDINGS_STATUSES = new Set([...FINISHED_STATUSES, ...LIVE_STATUSES]);
 const MATCH_UPDATE_WINDOW_MS = 3 * 60 * 60 * 1000;
 const CACHE_KEYS = {
   html: 'site:index.html',
@@ -342,6 +343,13 @@ function emptyStanding(team, group) {
   };
 }
 
+function matchCountsTowardStandings(match) {
+  const status = matchStatus(match).short;
+  const homeGoals = asInt(match?.score?.fullTime?.home ?? match?.score?.regularTime?.home, null);
+  const awayGoals = asInt(match?.score?.fullTime?.away ?? match?.score?.regularTime?.away, null);
+  return STANDINGS_STATUSES.has(status) && Number.isFinite(homeGoals) && Number.isFinite(awayGoals);
+}
+
 function normalizeStandings(matches) {
   const groups = new Map();
   for (const match of matches) {
@@ -352,7 +360,7 @@ function normalizeStandings(matches) {
     for (const team of [match?.homeTeam, match?.awayTeam]) {
       if (team?.id && !table.has(team.id)) table.set(team.id, emptyStanding(team, groupName));
     }
-    if (String(match?.status ?? '').toUpperCase() !== 'FINISHED') continue;
+    if (!matchCountsTowardStandings(match)) continue;
     const home = table.get(match?.homeTeam?.id);
     const away = table.get(match?.awayTeam?.id);
     const hg = asInt(match?.score?.fullTime?.home ?? match?.score?.regularTime?.home);
@@ -563,7 +571,7 @@ function headToHeadValue(row, tiedTeamNames, fixtures) {
   if (!teamName) return stats;
 
   for (const fixture of fixtures) {
-    if (!FINISHED_STATUSES.has(fixture?.fixture?.status?.short)) continue;
+    if (!STANDINGS_STATUSES.has(fixture?.fixture?.status?.short)) continue;
     const home = fixture?.teams?.home?.name;
     const away = fixture?.teams?.away?.name;
     if (!tiedTeamNames.has(home) || !tiedTeamNames.has(away)) continue;
@@ -659,14 +667,47 @@ function getEliminatedTeams(standings, fixtures, teamGroups) {
   return eliminated;
 }
 
-function renderStandings(standings, peopleMap) {
+function liveStandingStates(fixtures = []) {
+  const states = {};
+  for (const fixture of fixtures) {
+    if (!LIVE_STATUSES.has(fixture?.fixture?.status?.short)) continue;
+    const home = fixture?.teams?.home?.name;
+    const away = fixture?.teams?.away?.name;
+    const homeGoals = fixture?.goals?.home;
+    const awayGoals = fixture?.goals?.away;
+    if (!home || !away || !Number.isFinite(homeGoals) || !Number.isFinite(awayGoals)) continue;
+
+    if (homeGoals === awayGoals) {
+      states[home] = 'drawing';
+      states[away] = 'drawing';
+    } else if (homeGoals > awayGoals) {
+      states[home] = 'winning';
+      states[away] = 'losing';
+    } else {
+      states[home] = 'losing';
+      states[away] = 'winning';
+    }
+  }
+  return states;
+}
+
+function renderLiveStandingMarker(state) {
+  if (!state) return "<span class='live-standing-placeholder' aria-hidden='true'></span>";
+  const label = `Currently ${state} live match`;
+  return `<span class='live-standing-marker live-standing-marker--${escapeHtml(state)}' title='${escapeHtml(label)}' aria-label='${escapeHtml(label)}'></span>`;
+}
+
+function renderStandings(standings, peopleMap, fixtures = []) {
   if (!Object.keys(standings).length) return "<p class='empty'>No group table data available yet.</p>";
+  const liveStates = liveStandingStates(fixtures);
   return Object.entries(standings).map(([group, rows]) => {
     const people = rows.map((row) => teamOwner(row.team?.name ?? '', peopleMap)).filter((owner) => owner !== '—');
     const body = rows.map((row) => {
       const all = row.all ?? {};
       const goals = all.goals ?? {};
-      return `<tr>
+      const liveState = liveStates[row.team?.name];
+      return `<tr${liveState ? ` class='has-live-standing has-live-standing--${escapeHtml(liveState)}'` : ''}>
+        <td class='live-standing-cell'>${renderLiveStandingMarker(liveState)}</td>
         <td class='rank'>${escapeHtml(row.rank)}</td>
         <td>${displayTeam(row.team, peopleMap, false)}</td>
         <td>${escapeHtml(teamOwner(row.team?.name ?? '', peopleMap))}</td>
@@ -682,7 +723,7 @@ function renderStandings(standings, peopleMap) {
     return `<article class='group-card' data-people='${escapeHtml([...new Set(people)].join('|'))}'>
       <h3>${escapeHtml(group)}</h3>
       <div class='table-wrap'><table>
-        <thead><tr><th>#</th><th>Team</th><th>Person</th><th>P</th><th>W</th><th>D</th><th>L</th><th>GF-GA</th><th>GD</th><th>Pts</th></tr></thead>
+        <thead><tr><th class='live-standing-heading'><span class='sr-only'>Live match status</span></th><th>#</th><th>Team</th><th>Person</th><th>P</th><th>W</th><th>D</th><th>L</th><th>GF-GA</th><th>GD</th><th>Pts</th></tr></thead>
         <tbody>${body}</tbody>
       </table></div>
     </article>`;
@@ -808,7 +849,7 @@ function renderPage(payload, peopleMap) {
 
     <section id='groups'>
       <div class='section-heading'><h2>Group tables</h2><p>Top two plus the eight best third-placed teams progress to the Round of 32.</p></div>
-      <div class='grid groups-grid'>${renderStandings(standings, peopleMap)}</div>
+      <div class='grid groups-grid'>${renderStandings(standings, peopleMap, fixtures)}</div>
     </section>
 
     <section id='group-fixtures'>

@@ -14,9 +14,9 @@ This repository is designed for Cloudflare's free tier and includes a GitHub Act
 
 - **GitHub Actions** deploys the Cloudflare Pages site and updater Worker on pushes to `main`, then calls the deployed Worker refresh endpoint so the Worker run appears in Worker logs and refreshes the SQLite cache.
 - **Cloudflare Pages** hosts the static frontend assets in `site/`.
-- **Cloudflare Durable Objects alarms** run the updater every minute with a lightweight Cron Trigger bootstrapping the singleton Durable Object scheduler.
+- **Cloudflare Durable Objects alarms** run the updater on a dynamic cadence with a lightweight Cron Trigger bootstrapping the singleton Durable Object scheduler.
 - **SQLite-backed Durable Object storage** stores the latest normalized payload and update status.
-- The browser loads the static shell from Pages, calls `/api/state`, and renders the wall chart from the cached JSON without exposing the football-data.org API key.
+- The browser loads the static shell from Pages, calls `/api/state`, renders the wall chart from the cached JSON, and polls the backend every minute while open without exposing the football-data.org API key.
 
 Deployments call the freshly deployed Worker after both Pages and the updater Worker are deployed, forcing the Durable Object coordinator to fetch the latest API payload and write the SQLite cache so renderer or mapping changes go live even when there are no match updates. Durable Object alarm refreshes only rewrite the cached payload when the API reports a live match, or when an unfinished match is inside its scheduled three-hour kickoff window. A manual `POST /refresh` endpoint on the Worker can force the same refresh through the Durable Object coordinator.
 
@@ -169,6 +169,12 @@ Current mapping transcribed from the image:
 
 ## API refresh notes
 
-Cloudflare runs a lightweight Worker cron every minute using `* * * * *` to bootstrap the singleton Durable Object if its alarm is missing or the last Durable Object refresh is stale. The Durable Object alarm performs the actual scheduled refresh every minute, avoiding the tight CPU budget of the front Worker invocation, and the bootstrap cron now also asks the Durable Object to run when there is no recorded run or the last run is more than 2 minutes old. Scheduled runs only render and store a new payload when the API reports a live match, or when an unfinished match is within its scheduled 3-hour kickoff window. Manual Worker refreshes are forwarded to the Durable Object and always render and store a new payload.
+Cloudflare runs a lightweight Worker cron every minute using `* * * * *` to bootstrap the singleton Durable Object if its alarm is missing or overdue. The Durable Object alarm performs the actual scheduled refresh, avoiding the tight CPU budget of the front Worker invocation. After each run it schedules the next alarm for:
+
+- 1 minute when any match is live.
+- 5 minutes during the 17:00-08:00 Europe/London match window when no match is live.
+- 1 hour outside that window, capped so the scheduler wakes at the next 17:00 window start.
+
+Scheduled runs only render and store a new payload when the API reports a live match, or when an unfinished match is within its scheduled 3-hour kickoff window. Manual Worker refreshes are forwarded to the Durable Object and always render and store a new payload.
 
 Deployments are the other forced-refresh path: `npm run build:strict` writes the static shell, then the GitHub Actions workflow calls the deployed Worker refresh endpoint to store the latest payload and status in SQLite-backed Durable Object storage.
