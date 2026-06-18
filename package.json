@@ -8,8 +8,7 @@
     "build:strict": "node scripts/build-site.js --no-cache",
     "cf:pages:deploy": "npm run build:strict && wrangler pages deploy site --project-name worldcup-sweepstake",
     "cf:worker:deploy": "wrangler deploy --config cloudflare/worker/wrangler.toml",
-    "cf:kv:render": "./scripts/publish-rendered-kv.sh",
-    "cf:deploy": "npm run cf:pages:deploy && npm run cf:worker:deploy && npm run cf:kv:render",
+    "cf:deploy": "npm run cf:pages:deploy && npm run cf:worker:deploy",
     "sync:people-map": "node scripts/update-people-map.js"
   },
   "devDependencies": {

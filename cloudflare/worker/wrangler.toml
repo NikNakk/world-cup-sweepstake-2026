@@ -14,7 +14,7 @@ persist = true
 
 [triggers]
 # Lightweight safety bootstrap only. The heavy updater runs inside the Durable Object alarm.
-crons = ["3-59/5 * * * *"]
+crons = ["* * * * *"]
 
 [[durable_objects.bindings]]
 name = "UPDATER_COORDINATOR"
@@ -23,11 +23,6 @@ class_name = "UpdaterCoordinator"
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["UpdaterCoordinator"]
-
-[[kv_namespaces]]
-binding = "WORLDCUP_SITE"
-id = "d595e9262e6d467fb1217fb41920af9c"
-preview_id = "600f17f323dc428d9ac44816f3f32222"
 
 # Set this secret to enable manual POST /refresh with Authorization: Bearer <token>.
 # Run: npx wrangler secret put UPDATE_TOKEN --config cloudflare/worker/wrangler.toml

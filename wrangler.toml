@@ -1,8 +1,3 @@
 name = "worldcup-sweepstake"
 pages_build_output_dir = "site"
 compatibility_date = "2026-06-12"
-
-[[kv_namespaces]]
-binding = "WORLDCUP_SITE"
-id = "d595e9262e6d467fb1217fb41920af9c"
-preview_id = "600f17f323dc428d9ac44816f3f32222"

@@ -39,13 +39,8 @@ jobs:
 
       - name: Build static Pages fallback
         env:
-          FOOTBALL_DATA_API_KEY: ${{ secrets.FOOTBALL_DATA_API_KEY }}
-        run: |
-          if [ -z "${FOOTBALL_DATA_API_KEY:-}" ]; then
-            echo "Missing repository secret FOOTBALL_DATA_API_KEY." >&2
-            exit 1
-          fi
-          npm run build:strict
+          WORKER_REFRESH_URL: ${{ vars.WORKER_REFRESH_URL }}
+        run: npm run build:strict
 
       - name: Deploy Cloudflare Pages
         uses: cloudflare/wrangler-action@v3

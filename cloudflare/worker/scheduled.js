@@ -5,10 +5,13 @@ const JSON_HEADERS = {
   'content-type': 'application/json; charset=utf-8',
   'cache-control': 'no-store',
   'x-content-type-options': 'nosniff',
+  'access-control-allow-origin': '*',
+  'access-control-allow-methods': 'GET, POST, OPTIONS',
+  'access-control-allow-headers': 'authorization, content-type, accept',
 };
 
 const SCHEDULER_OBJECT_NAME = 'worldcup-sweepstake-updater';
-const SCHEDULER_INTERVAL_MS = 5 * 60 * 1000;
+const SCHEDULER_INTERVAL_MS = 60 * 1000;
 const BOOTSTRAP_STALE_AFTER_MS = SCHEDULER_INTERVAL_MS * 2;
 const INTERNAL_SCHEDULER_URL = 'https://scheduler.internal/';
 
@@ -69,6 +72,23 @@ function serializeError(error) {
   };
 }
 
+function sqliteSiteCache(storage) {
+  return {
+    getPayload() {
+      return storage.get(CACHE_KEYS.payload);
+    },
+    putStatus(status) {
+      return storage.put(CACHE_KEYS.status, status);
+    },
+    putRenderedSite({ payload, status }) {
+      return storage.put({
+        [CACHE_KEYS.payload]: payload,
+        [CACHE_KEYS.status]: status,
+      });
+    },
+  };
+}
+
 export class UpdaterCoordinator {
   constructor(state, env) {
     this.state = state;
@@ -82,6 +102,41 @@ export class UpdaterCoordinator {
       const body = await parseJsonRequest(request);
       const status = await this.runUpdate({ force: Boolean(body.force), trigger: body.trigger ?? 'manual' });
       return jsonResponse(status);
+    }
+
+    if (url.pathname === '/payload') {
+      const payload = await this.state.storage.get(CACHE_KEYS.payload);
+      if (!payload) {
+        return jsonResponse({ error: 'No payload has been generated yet.' }, { status: 404 });
+      }
+      return jsonResponse(payload, {
+        headers: {
+          'cache-control': 'public, max-age=15',
+        },
+      });
+    }
+
+    if (url.pathname === '/site-status') {
+      const status = await this.state.storage.get(CACHE_KEYS.status);
+      return jsonResponse(status ?? { updated: false, reason: 'No scheduled refresh has run yet.' });
+    }
+
+    if (url.pathname === '/state') {
+      const [payload, status] = await Promise.all([
+        this.state.storage.get(CACHE_KEYS.payload),
+        this.state.storage.get(CACHE_KEYS.status),
+      ]);
+      if (!payload) {
+        return jsonResponse({ error: 'No payload has been generated yet.' }, { status: 404 });
+      }
+      return jsonResponse({
+        payload,
+        status: status ?? { updated: false, reason: 'No scheduled refresh has run yet.' },
+      }, {
+        headers: {
+          'cache-control': 'public, max-age=15',
+        },
+      });
     }
 
     if (url.pathname === '/start') {
@@ -146,7 +201,7 @@ export class UpdaterCoordinator {
     await this.putScheduler({ enabled: true, lastStartedAt: startedAt });
 
     try {
-      const refreshStatus = await refreshSite(this.env.WORLDCUP_SITE, PEOPLE_MAP, { force, apiKey: this.env.FOOTBALL_DATA_API_KEY });
+      const refreshStatus = await refreshSite(sqliteSiteCache(this.state.storage), PEOPLE_MAP, { force, apiKey: this.env.FOOTBALL_DATA_API_KEY });
       const status = {
         ...refreshStatus,
         trigger,
@@ -225,14 +280,34 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
 
+    if (request.method === 'OPTIONS') {
+      return new Response(null, { status: 204, headers: JSON_HEADERS });
+    }
+
     if (url.pathname === '/health') {
       const [siteStatus, schedulerStatus] = await Promise.all([
-        env.WORLDCUP_SITE.get(CACHE_KEYS.status, 'json'),
+        callScheduler(env, '/site-status'),
         callScheduler(env, '/status'),
       ]);
       return jsonResponse({
         site: siteStatus ?? { updated: false, reason: 'No scheduled refresh has run yet.' },
         scheduler: schedulerStatus,
+      });
+    }
+
+    if (url.pathname === '/api/payload') {
+      return jsonResponse(await callScheduler(env, '/payload'));
+    }
+
+    if (url.pathname === '/api/status') {
+      return jsonResponse(await callScheduler(env, '/site-status'));
+    }
+
+    if (url.pathname === '/api/state') {
+      return jsonResponse(await callScheduler(env, '/state'), {
+        headers: {
+          'cache-control': 'public, max-age=15',
+        },
       });
     }
 
@@ -276,7 +351,7 @@ export default {
 
     return jsonResponse({
       service: 'worldcup-sweepstake-updater',
-      endpoints: ['/health', 'POST /refresh', 'POST /scheduler/start', 'POST /scheduler/stop', '/scheduler/status'],
+      endpoints: ['/health', '/api/state', '/api/payload', '/api/status', 'POST /refresh', 'POST /scheduler/start', 'POST /scheduler/stop', '/scheduler/status'],
     });
   },
 };
