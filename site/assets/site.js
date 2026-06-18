@@ -100,8 +100,8 @@ function initializeFilters() {
     updateFilteredContent();
   }
 
-  function setSelectedFixtureFilter(filter) {
-    selectedFixtureFilter = selectedFixtureFilter === filter ? null : filter;
+  function setSelectedFixtureFilter(filter, wasSelected = selectedFixtureFilter === filter) {
+    selectedFixtureFilter = wasSelected ? null : filter;
 
     fixtureFilterButtons.forEach((button) => {
       const isSelected = button.dataset.fixtureFilter === selectedFixtureFilter;
@@ -128,7 +128,7 @@ function initializeFilters() {
 
   fixtureFilterButtons.forEach((button) => {
     button.addEventListener('click', () => {
-      setSelectedFixtureFilter(button.dataset.fixtureFilter);
+      setSelectedFixtureFilter(button.dataset.fixtureFilter, button.classList.contains('is-selected'));
     });
   });
 
