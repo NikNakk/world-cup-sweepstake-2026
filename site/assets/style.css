@@ -336,10 +336,18 @@ footer { padding: 2rem clamp(1rem, 4vw, 4rem); color: var(--muted); border-top: 
 
 @media (max-width: 520px) {
   .group-card { padding: .75rem; }
-  .group-card table { font-size: .72rem; }
+  .group-card .table-wrap {
+    margin: 0 -.25rem;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .group-card table {
+    min-width: 42rem;
+    font-size: .74rem;
+  }
   .group-card th,
   .group-card td {
-    padding: .45rem .12rem;
+    padding: .45rem .16rem;
     vertical-align: top;
   }
   .group-card th {
@@ -349,19 +357,28 @@ footer { padding: 2rem clamp(1rem, 4vw, 4rem); color: var(--muted); border-top: 
     overflow-wrap: anywhere;
   }
   .group-card th:nth-child(1),
-  .group-card td:nth-child(1) { width: 1.35rem; }
+  .group-card td:nth-child(1) { width: 1rem; }
   .group-card th:nth-child(2),
-  .group-card td:nth-child(2) { width: 5.5rem; }
+  .group-card td:nth-child(2) { width: 1.55rem; }
   .group-card th:nth-child(3),
-  .group-card td:nth-child(3) { width: 4.3rem; }
-  .group-card th:nth-child(n+4),
-  .group-card td:nth-child(n+4) { width: 1.35rem; }
-  .group-card th:nth-child(8),
-  .group-card td:nth-child(8) { width: 2.75rem; }
+  .group-card td:nth-child(3) { width: 10rem; }
+  .group-card th:nth-child(4),
+  .group-card td:nth-child(4) { width: 5.5rem; }
+  .group-card th:nth-child(n+5),
+  .group-card td:nth-child(n+5) { width: 1.35rem; }
   .group-card th:nth-child(9),
-  .group-card td:nth-child(9) { width: 1.55rem; }
+  .group-card td:nth-child(9) { width: 2.65rem; }
   .group-card th:nth-child(10),
-  .group-card td:nth-child(10) { width: 1.75rem; }
+  .group-card td:nth-child(10) { width: 1.5rem; }
+  .group-card th:nth-child(11),
+  .group-card td:nth-child(11) { width: 1.75rem; }
+  .group-card th:nth-child(9) { white-space: normal; }
+  .group-card th:nth-child(9)::before { content: 'GF'; }
+  .group-card th:nth-child(9) { font-size: 0; }
+  .group-card th:nth-child(9)::before { font-size: .56rem; }
+  .group-card th:nth-child(11)::before { content: 'Pts'; }
+  .group-card th:nth-child(11) { font-size: 0; }
+  .group-card th:nth-child(11)::before { font-size: .56rem; }
   .group-card .team {
     flex-direction: column;
     align-items: flex-start;
