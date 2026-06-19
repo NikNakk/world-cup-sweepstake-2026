@@ -336,7 +336,15 @@ footer { padding: 2rem clamp(1rem, 4vw, 4rem); color: var(--muted); border-top: 
 
 @media (max-width: 520px) {
   .group-card { padding: .75rem; }
-  .group-card table { font-size: .74rem; }
+  .group-card .table-wrap {
+    margin: 0 -.25rem;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .group-card table {
+    min-width: 42rem;
+    font-size: .74rem;
+  }
   .group-card th,
   .group-card td {
     padding: .45rem .16rem;
@@ -353,9 +361,9 @@ footer { padding: 2rem clamp(1rem, 4vw, 4rem); color: var(--muted); border-top: 
   .group-card th:nth-child(2),
   .group-card td:nth-child(2) { width: 1.55rem; }
   .group-card th:nth-child(3),
-  .group-card td:nth-child(3) { width: auto; }
+  .group-card td:nth-child(3) { width: 10rem; }
   .group-card th:nth-child(4),
-  .group-card td:nth-child(4) { display: none; }
+  .group-card td:nth-child(4) { width: 5.5rem; }
   .group-card th:nth-child(n+5),
   .group-card td:nth-child(n+5) { width: 1.35rem; }
   .group-card th:nth-child(9),

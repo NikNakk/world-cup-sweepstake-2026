@@ -4,7 +4,7 @@ import { renderPage } from './worldcup-renderer.js';
 const DEFAULT_API_STATE_URL = '/api/state';
 const POLL_INTERVAL_MS = 60 * 1000;
 let selectedPerson = null;
-let selectedFixtureFilter = null;
+let selectedFixtureFilter = 'all';
 let isLoadingState = false;
 let apiStateUrlPromise = null;
 
@@ -44,8 +44,12 @@ function initializeFilters() {
     return group.dataset.people.split('|').includes(person);
   }
 
+  function fixtureFilterIsActive() {
+    return selectedFixtureFilter !== 'all';
+  }
+
   function matchPassesFixtureFilter(match) {
-    if (!selectedFixtureFilter || selectedFixtureFilter === 'all') {
+    if (!fixtureFilterIsActive()) {
       return true;
     }
     return match.classList.contains(selectedFixtureFilter);
@@ -60,7 +64,7 @@ function initializeFilters() {
   }
 
   function filtersAreActive() {
-    return Boolean(selectedFixtureFilter || selectedPerson);
+    return fixtureFilterIsActive() || Boolean(selectedPerson);
   }
 
   function updatePersonCards() {
@@ -74,7 +78,7 @@ function initializeFilters() {
 
   function updateFilteredContent() {
     document.body.classList.toggle('person-filter-active', Boolean(selectedPerson));
-    document.body.classList.toggle('fixture-filter-active', Boolean(selectedFixtureFilter));
+    document.body.classList.toggle('fixture-filter-active', fixtureFilterIsActive());
 
     updatePersonCards();
 
@@ -87,7 +91,7 @@ function initializeFilters() {
     });
 
     if (groupsSection) {
-      groupsSection.hidden = Boolean(selectedFixtureFilter);
+      groupsSection.hidden = fixtureFilterIsActive();
     }
 
     groupCards.forEach((group) => {
@@ -101,7 +105,7 @@ function initializeFilters() {
   }
 
   function setSelectedFixtureFilter(filter) {
-    selectedFixtureFilter = filter === 'all' || selectedFixtureFilter === filter ? null : filter;
+    selectedFixtureFilter = filter === 'all' || selectedFixtureFilter === filter ? 'all' : filter;
 
     fixtureFilterButtons.forEach((button) => {
       const isSelected = button.dataset.fixtureFilter === selectedFixtureFilter;
