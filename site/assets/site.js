@@ -108,7 +108,7 @@ function initializeFilters() {
     selectedFixtureFilter = filter === 'all' || selectedFixtureFilter === filter ? 'all' : filter;
 
     fixtureFilterButtons.forEach((button) => {
-      const isSelected = button.dataset.fixtureFilter === selectedFixtureFilter;
+      const isSelected = fixtureFilterIsActive() && button.dataset.fixtureFilter === selectedFixtureFilter;
       button.classList.toggle('is-selected', isSelected);
       button.setAttribute('aria-pressed', String(isSelected));
     });
@@ -133,11 +133,12 @@ function initializeFilters() {
   fixtureFilterButtons.forEach((button) => {
     button.addEventListener('click', () => {
       setSelectedFixtureFilter(button.dataset.fixtureFilter);
+      button.blur();
     });
   });
 
   fixtureFilterButtons.forEach((button) => {
-    const isSelected = button.dataset.fixtureFilter === selectedFixtureFilter;
+    const isSelected = fixtureFilterIsActive() && button.dataset.fixtureFilter === selectedFixtureFilter;
     button.classList.toggle('is-selected', isSelected);
     button.setAttribute('aria-pressed', String(isSelected));
   });

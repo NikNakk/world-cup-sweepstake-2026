@@ -706,11 +706,13 @@ function renderStandings(standings, peopleMap, fixtures = []) {
       const all = row.all ?? {};
       const goals = all.goals ?? {};
       const liveState = liveStates[row.team?.name];
+      const owner = teamOwner(row.team?.name ?? '', peopleMap);
+      const mobileOwner = owner !== '—' ? `<span class='standings-mobile-owner'>${escapeHtml(owner)}</span>` : '';
       return `<tr${liveState ? ` class='has-live-standing has-live-standing--${escapeHtml(liveState)}'` : ''}>
         <td class='live-standing-cell'>${renderLiveStandingMarker(liveState)}</td>
         <td class='rank'>${escapeHtml(row.rank)}</td>
-        <td>${displayTeam(row.team, peopleMap, false)}</td>
-        <td>${escapeHtml(teamOwner(row.team?.name ?? '', peopleMap))}</td>
+        <td>${displayTeam(row.team, peopleMap, false)}${mobileOwner}</td>
+        <td class='standings-owner-cell'>${escapeHtml(owner)}</td>
         <td>${escapeHtml(all.played ?? 0)}</td>
         <td>${escapeHtml(all.win ?? 0)}</td>
         <td>${escapeHtml(all.draw ?? 0)}</td>
