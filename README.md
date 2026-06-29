@@ -165,7 +165,7 @@ Current mapping transcribed from the image:
 | Alistair | Morocco, Switzerland, Bosnia-Herzegovina |
 | Andrew | Brazil, Mexico, Cape Verde Islands |
 | Diggers | Colombia, Saudi Arabia, South Africa |
-| Extra | Belgium, Ecuador, Curaçao |
+| Jonny | Belgium, Ecuador, Curaçao |
 
 ## API refresh notes
 
