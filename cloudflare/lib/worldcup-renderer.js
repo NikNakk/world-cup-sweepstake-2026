@@ -249,6 +249,38 @@ function previousLiveMatchesFinished(games, previousPayload) {
     }));
 }
 
+function finishedMatchesChanged(games, previousPayload) {
+  const previousFixtures = new Map(
+    (previousPayload?.fixtures ?? [])
+      .map((fixture) => [String(fixture?.fixture?.id ?? ''), fixture])
+      .filter(([id]) => id),
+  );
+
+  if (!previousFixtures.size) return [];
+
+  return games
+    .filter(isFinishedGame)
+    .filter((game) => {
+      const previousFixture = previousFixtures.get(String(game?.id ?? ''));
+      if (!previousFixture) return false;
+
+      const currentFixture = normalizeFixtures([game])[0];
+      return previousFixture.fixture?.status?.short !== currentFixture.fixture?.status?.short
+        || previousFixture.goals?.home !== currentFixture.goals?.home
+        || previousFixture.goals?.away !== currentFixture.goals?.away;
+    })
+    .map((game) => ({
+      id: asInt(game?.id),
+      home: game?.homeTeam?.name,
+      away: game?.awayTeam?.name,
+      status: matchStatus(game).short,
+      score: {
+        home: asInt(game?.score?.fullTime?.home ?? game?.score?.regularTime?.home, null),
+        away: asInt(game?.score?.fullTime?.away ?? game?.score?.regularTime?.away, null),
+      },
+    }));
+}
+
 function summarizeGames(games, now = new Date()) {
   return games.reduce((summary, game) => {
     const isFinished = isFinishedGame(game);
@@ -905,19 +937,27 @@ async function refreshSite(cache, peopleMap, options = {}) {
   const checkedAt = new Date();
   const previousPayload = await getCachedPayload(cache);
   const finishedPreviouslyLiveMatches = previousLiveMatchesFinished(games, previousPayload);
+  const changedFinishedMatches = finishedMatchesChanged(games, previousPayload);
   const gameSummary = summarizeGames(games, checkedAt);
   const hasFinishedPreviouslyLiveMatch = finishedPreviouslyLiveMatches.length > 0;
-  const shouldUpdate = options.force || shouldUpdateForGames(games, checkedAt) || hasFinishedPreviouslyLiveMatch;
+  const hasChangedFinishedMatch = changedFinishedMatches.length > 0;
+  const shouldUpdate = options.force
+    || shouldUpdateForGames(games, checkedAt)
+    || hasFinishedPreviouslyLiveMatch
+    || hasChangedFinishedMatch;
   const reason = options.force
     ? 'Forced refresh.'
     : hasFinishedPreviouslyLiveMatch
       ? 'Previously live match has finished.'
-      : 'Match is live or inside its update window.';
+      : hasChangedFinishedMatch
+        ? 'Finished match changed since the last rendered payload.'
+        : 'Match is live or inside its update window.';
   console.log('Refresh decision calculated.', {
     force: Boolean(options.force),
     shouldUpdate,
     gameSummary,
     finishedPreviouslyLiveMatches,
+    changedFinishedMatches,
   });
   if (!shouldUpdate) {
     const status = {
@@ -926,6 +966,7 @@ async function refreshSite(cache, peopleMap, options = {}) {
       checkedAt: checkedAt.toISOString(),
       gameSummary,
       finishedPreviouslyLiveMatches,
+      changedFinishedMatches,
     };
     await putRefreshStatus(cache, status);
     return status;
@@ -948,6 +989,7 @@ async function refreshSite(cache, peopleMap, options = {}) {
     fixtures: payload.fixtures.length,
     gameSummary,
     finishedPreviouslyLiveMatches,
+    changedFinishedMatches,
   };
   await putRenderedSite(cache, { html, payload, status });
   return status;
@@ -961,5 +1003,6 @@ export {
   renderPage,
   shouldUpdateForGames,
   previousLiveMatchesFinished,
+  finishedMatchesChanged,
   summarizeGames,
 };
