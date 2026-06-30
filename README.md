@@ -25,12 +25,13 @@ Deployments call the freshly deployed Worker after both Pages and the updater Wo
 ```text
 .github/workflows/deploy-cloudflare.yml  GitHub Actions production deployment workflow
 cloudflare/lib/people-map.js          Sweepstake mapping exported for Cloudflare Workers
-cloudflare/lib/worldcup-renderer.js   Worker-safe API client, update-window logic, and HTML renderer
+src/worldcup-renderer.js              Shared Worker-safe API client, update-window logic, and HTML renderer
+cloudflare/lib/worldcup-renderer.js   Thin Worker re-export of the shared renderer
 wrangler.toml                         Cloudflare Pages config
 cloudflare/worker/scheduled.js        Worker endpoints plus Durable Object scheduler/alarm coordinator
 cloudflare/worker/wrangler.toml       Worker config, cron bootstrap, and Durable Object binding
 data/people_teams.json                Source sweepstake team-to-person mapping
-scripts/build-site.js                 Node static HTML build using the shared Cloudflare renderer
+scripts/build-site.js                 Node static HTML build that copies the shared renderer into site/assets
 scripts/cloudflare-bootstrap.sh        Helper to create the Pages project
 scripts/deploy-cloudflare.sh           One-command install/build/deploy helper
 scripts/update-people-map.js           Regenerates the Worker people-map export from JSON
@@ -48,7 +49,7 @@ npx wrangler pages dev site --compatibility-date=2025-06-01
 
 Then open the local URL printed by Wrangler, usually `http://localhost:8788`.
 
-The build and live Cloudflare paths both use `cloudflare/lib/worldcup-renderer.js`, so API normalization and HTML rendering live in one JavaScript implementation. `npm run build` creates a static shell and copies the shared browser renderer into `site/assets`; live data is loaded from `/api/state` at runtime.
+The build and live Cloudflare paths both use `src/worldcup-renderer.js`, so API normalization and HTML rendering live in one JavaScript implementation. The Worker imports it via a thin re-export in `cloudflare/lib/worldcup-renderer.js`; `npm run build` creates a static shell and copies the same shared renderer into `site/assets`; live data is loaded from `/api/state` at runtime.
 
 ## Cloudflare setup
 

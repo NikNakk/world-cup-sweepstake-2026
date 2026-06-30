@@ -97,7 +97,7 @@ async function build() {
     source: payload.source,
   }, null, 2)}\n`, 'utf8');
   await copyFile(join(DATA_DIR, 'people_teams.json'), join(SITE_DIR, 'people_teams.json'));
-  await copyFile(join(ROOT, 'cloudflare/lib/worldcup-renderer.js'), join(ASSETS_DIR, 'worldcup-renderer.js'));
+  await copyFile(join(ROOT, 'src/worldcup-renderer.js'), join(ASSETS_DIR, 'worldcup-renderer.js'));
   await copyFile(join(ROOT, 'cloudflare/lib/people-map.js'), join(ASSETS_DIR, 'people-map.js'));
 
   console.log('Built static site shell. Live data is loaded from /api/state.');
