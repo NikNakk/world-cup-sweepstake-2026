@@ -106,6 +106,28 @@ const GROUP_STAGE_BROADCASTERS = [
   return map;
 }, new Map());
 
+const KNOCKOUT_BROADCASTERS = [
+  ['South Africa', 'Canada', 'ITV1/STV'],
+  ['Brazil', 'Japan', 'ITV1/STV'],
+  ['Germany', 'Paraguay', 'BBC One'],
+  ['Netherlands', 'Morocco', 'ITV1/STV'],
+  ['Ivory Coast', 'Norway', 'BBC One'],
+  ['France', 'Sweden', 'ITV1/STV'],
+  ['Mexico', 'Ecuador', 'ITV1/STV'],
+  ['England', 'Congo DR', 'BBC One'],
+  ['Belgium', 'Senegal', 'ITV1/STV'],
+  ['United States', 'Bosnia-Herzegovina', 'BBC One'],
+  ['Spain', 'Austria', 'BBC One'],
+  ['Portugal', 'Croatia', 'BBC One'],
+  ['Switzerland', 'Algeria', 'BBC One'],
+  ['Australia', 'Egypt', 'BBC One'],
+  ['Argentina', 'Cape Verde Islands', 'ITV1/STV'],
+  ['Colombia', 'Ghana', 'ITV1/STV'],
+].reduce((map, [home, away, broadcaster]) => {
+  map.set(broadcasterKey(home, away), broadcaster);
+  return map;
+}, new Map());
+
 const ROUND_NAMES = {
   r32: 'Round of 32',
   r16: 'Round of 16',
@@ -505,11 +527,13 @@ function broadcasterKey(home, away) {
 function matchBroadcaster(match) {
   const round = match?.league?.round ?? '';
   if (round === 'Final') return 'BBC One + ITV1';
-  if (!round.includes('Group')) return null;
   const home = match?.teams?.home?.name;
   const away = match?.teams?.away?.name;
   if (!home || !away) return null;
-  return GROUP_STAGE_BROADCASTERS.get(broadcasterKey(home, away)) ?? null;
+
+  const key = broadcasterKey(home, away);
+  if (round.includes('Group')) return GROUP_STAGE_BROADCASTERS.get(key) ?? null;
+  return KNOCKOUT_BROADCASTERS.get(key) ?? null;
 }
 
 function renderBroadcasterBadge(match) {

@@ -7,3 +7,4 @@ node_modules/
 site/payload.json
 site/last-update.json
 .codex/config.toml
+site/assets/worldcup-renderer.js
