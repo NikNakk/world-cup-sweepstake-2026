@@ -123,10 +123,29 @@ const KNOCKOUT_BROADCASTERS = [
   ['Australia', 'Egypt', 'BBC One'],
   ['Argentina', 'Cape Verde Islands', 'ITV1/STV'],
   ['Colombia', 'Ghana', 'ITV1/STV'],
+  ['Canada', 'Morocco', 'ITV1/STV'],
+  ['Paraguay', 'France', 'BBC One'],
+  ['Brazil', 'Norway', 'ITV1/STV'],
+  ['Mexico', 'England', 'BBC One'],
+  ['Portugal', 'Spain', 'BBC One'],
+  ['United States', 'Belgium', 'BBC One'],
+  ['Argentina', 'Egypt', 'ITV1/STV'],
+  ['Switzerland', 'Colombia', 'ITV1/STV'],
+  ['France', 'Morocco', 'ITV1/STV'],
+  ['Spain', 'Belgium', 'BBC One'],
+  ['Norway', 'England', 'ITV1/STV'],
+  ['Argentina', 'Switzerland', 'ITV1/STV'],
 ].reduce((map, [home, away, broadcaster]) => {
   map.set(broadcasterKey(home, away), broadcaster);
   return map;
 }, new Map());
+
+const KNOCKOUT_DATE_BROADCASTERS = new Map([
+  ['Semi-finals|2026-07-14', 'ITV1/STV'],
+  ['Semi-finals|2026-07-15', 'BBC One'],
+  ['3rd Place|2026-07-18', 'BBC One'],
+  ['Final|2026-07-19', 'BBC One + ITV1/STV'],
+]);
 
 const ROUND_NAMES = {
   r32: 'Round of 32',
@@ -526,7 +545,9 @@ function broadcasterKey(home, away) {
 
 function matchBroadcaster(match) {
   const round = match?.league?.round ?? '';
-  if (round === 'Final') return 'BBC One + ITV1';
+  const matchDate = String(match?.fixture?.date ?? '').slice(0, 10);
+  const knockoutDateBroadcaster = KNOCKOUT_DATE_BROADCASTERS.get(`${round}|${matchDate}`);
+  if (knockoutDateBroadcaster) return knockoutDateBroadcaster;
   const home = match?.teams?.home?.name;
   const away = match?.teams?.away?.name;
   if (!home || !away) return null;
